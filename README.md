@@ -1,9 +1,10 @@
 <p align="center">
-  <img src="assets/banner.png" alt="factory — workflow engineering" width="600" style="border-radius: 16px;" />
+  <a href="https://github.com/usamaasfar/factory">
+    <img alt="factory logo" src="assets/banner.png" width="128">
+  </a>
 </p>
-
 <p align="center">
-  <a href="https://github.com/usamaasfar/factory/releases"><img src="https://img.shields.io/github/v/release/usamaasfar/factory" alt="GitHub release" /></a>
+  <a href="https://github.com/usamaasfar/factory/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/usamaasfar/factory?style=flat-square" /></a>
 </p>
 
 # Factory
