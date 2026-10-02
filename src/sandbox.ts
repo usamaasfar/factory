@@ -47,9 +47,33 @@ export class DockerSandbox {
     return result.value.content;
   }
 
+  async readBinary(path: string): Promise<Uint8Array> {
+    const result = await this.#request("readBinary", { path });
+    if (result.method !== "readBinary") throw new Error(`Unexpected sandbox response: ${result.method}`);
+    return Uint8Array.from(Buffer.from(result.value.content, "base64"));
+  }
+
   async write(path: string, content: string): Promise<void> {
     const result = await this.#request("write", { path, content });
     if (result.method !== "write") throw new Error(`Unexpected sandbox response: ${result.method}`);
+  }
+
+  async writeBinary(path: string, content: Uint8Array): Promise<void> {
+    const encoded = Buffer.from(content).toString("base64");
+    const result = await this.#request("writeBinary", { path, content: encoded });
+    if (result.method !== "writeBinary") throw new Error(`Unexpected sandbox response: ${result.method}`);
+  }
+
+  async exists(path: string): Promise<boolean> {
+    const result = await this.#request("exists", { path });
+    if (result.method !== "exists") throw new Error(`Unexpected sandbox response: ${result.method}`);
+    return result.value.exists;
+  }
+
+  async fileInfo(path: string) {
+    const result = await this.#request("fileInfo", { path });
+    if (result.method !== "fileInfo") throw new Error(`Unexpected sandbox response: ${result.method}`);
+    return result.value;
   }
 
   async stop(): Promise<void> {

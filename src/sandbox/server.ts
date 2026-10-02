@@ -1,5 +1,5 @@
-import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { access, lstat, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { createInterface } from "node:readline";
 import type { SandboxRequest, SandboxResponse, SandboxResult } from "./protocol.ts";
 
@@ -49,11 +49,43 @@ async function handle(request: SandboxRequest): Promise<SandboxResult> {
       return { method: "read", value: { content } };
     }
 
+    case "readBinary": {
+      const content = await readFile(workspacePath(request.params.path));
+      return { method: "readBinary", value: { content: content.toString("base64") } };
+    }
+
     case "write": {
       const path = workspacePath(request.params.path);
       await mkdir(dirname(path), { recursive: true });
       await writeFile(path, request.params.content, "utf8");
       return { method: "write", value: { bytesWritten: Buffer.byteLength(request.params.content) } };
+    }
+
+    case "writeBinary": {
+      const path = workspacePath(request.params.path);
+      const content = Buffer.from(request.params.content, "base64");
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(path, content);
+      return { method: "writeBinary", value: { bytesWritten: content.byteLength } };
+    }
+
+    case "exists": {
+      try {
+        await access(workspacePath(request.params.path));
+        return { method: "exists", value: { exists: true } };
+      } catch {
+        return { method: "exists", value: { exists: false } };
+      }
+    }
+
+    case "fileInfo": {
+      const path = workspacePath(request.params.path);
+      const stats = await lstat(path);
+      const kind = stats.isFile() ? "file" : stats.isDirectory() ? "directory" : "symlink";
+      return {
+        method: "fileInfo",
+        value: { name: basename(path), path, kind, size: stats.size, mtimeMs: stats.mtimeMs },
+      };
     }
   }
 }
