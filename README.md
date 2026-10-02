@@ -1,13 +1,8 @@
-<p align="center">
-  <a href="https://github.com/usamaasfar/factory">
-    <img src="assets/banner.png" width="800px" alt="Factory - Workflow engineering">
-  </a>
-</p>
+# Factory – Workflow Engineering
 <p align="center">
   <a href="https://github.com/usamaasfar/factory/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/usamaasfar/factory?style=flat-square" /></a>
 </p>
 
-# Factory
 
 Factory is a workflow engineering platform for automating repeatable software work—such as reviewing code, triaging issues, and fixing bugs—in isolated sandboxes.
 
