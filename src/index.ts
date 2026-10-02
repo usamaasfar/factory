@@ -18,9 +18,6 @@ const app = createServer({
   githubWebhookSecret: required("GITHUB_WEBHOOK_SECRET"),
 });
 
-const port = Number(Bun.env.PORT ?? 8080);
-if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) throw new Error("PORT must be a valid TCP port");
-
 /** Fails startup immediately when required deployment configuration is absent. */
 function required(name: string): string {
   const value = Bun.env[name];
@@ -30,6 +27,6 @@ function required(name: string): string {
 
 // Bun serves objects exposing the standard Fetch API handler.
 export default {
-  port,
+  port: Bun.env.PORT ?? 8080,
   fetch: app.fetch,
 };
