@@ -3,7 +3,14 @@ export type GitHubPullRequestEvent = {
   type: "pull_request.opened" | "pull_request.synchronize";
   installationId: number;
   repository: { id: number; owner: string; name: string; fullName: string };
-  pullRequest: { number: number; headSha: string; baseSha: string; title: string; body: string | null };
+  pullRequest: {
+    number: number;
+    headSha: string;
+    headRef: string;
+    baseSha: string;
+    title: string;
+    body: string | null;
+  };
   sender: { id: number; login: string; type: string };
 };
 
@@ -12,12 +19,29 @@ export type GitHubReviewCommentEvent = {
   type: "pull_request_review_comment.created";
   installationId: number;
   repository: { id: number; owner: string; name: string; fullName: string };
-  pullRequest: { number: number; headSha: string; baseSha: string; title: string; body: string | null };
+  pullRequest: {
+    number: number;
+    headSha: string;
+    headRef: string;
+    baseSha: string;
+    title: string;
+    body: string | null;
+  };
   comment: { id: number; body: string; inReplyToId?: number };
   sender: { id: number; login: string; type: string };
 };
 
-export type GitHubWebhookEvent = GitHubPullRequestEvent | GitHubReviewCommentEvent;
+export type GitHubIssueCommentEvent = {
+  deliveryId: string;
+  type: "issue_comment.created";
+  installationId: number;
+  repository: { id: number; owner: string; name: string; fullName: string };
+  pullRequest: { number: number };
+  comment: { id: number; body: string };
+  sender: { id: number; login: string; type: string };
+};
+
+export type GitHubWebhookEvent = GitHubPullRequestEvent | GitHubReviewCommentEvent | GitHubIssueCommentEvent;
 
 type GitHubPayload = {
   action?: unknown;
@@ -27,9 +51,10 @@ type GitHubPayload = {
   pull_request?: {
     title?: unknown;
     body?: unknown;
-    head?: { sha?: unknown };
+    head?: { sha?: unknown; ref?: unknown };
     base?: { sha?: unknown };
   };
+  issue?: { number?: unknown; pull_request?: unknown };
   comment?: { id?: unknown; body?: unknown; in_reply_to_id?: unknown };
   sender?: { id?: unknown; login?: unknown; type?: unknown };
 };
@@ -63,6 +88,20 @@ export function parseGitHubWebhook(headers: Headers, rawBody: Uint8Array): GitHu
     const type = payload.action === "opened" ? "pull_request.opened" : "pull_request.synchronize";
     return { ...common, type };
   }
+  if (eventName === "issue_comment" && payload.action === "created" && payload.issue?.pull_request) {
+    return {
+      deliveryId,
+      type: "issue_comment.created",
+      installationId: number(payload.installation?.id, "installation.id"),
+      repository: parseRepository(payload),
+      pullRequest: { number: number(payload.issue.number, "issue.number") },
+      comment: {
+        id: number(payload.comment?.id, "comment.id"),
+        body: string(payload.comment?.body, "comment.body"),
+      },
+      sender: parseSender(payload),
+    };
+  }
   if (eventName === "pull_request_review_comment" && payload.action === "created") {
     const common = parseCommon(payload, deliveryId);
     return {
@@ -83,29 +122,37 @@ export function isGitHubAppSender(event: GitHubWebhookEvent, appLogin: string): 
 }
 
 function parseCommon(payload: GitHubPayload, deliveryId: string) {
-  const repository = payload.repository;
   const pullRequest = payload.pull_request;
   return {
     deliveryId,
     installationId: number(payload.installation?.id, "installation.id"),
-    repository: {
-      id: number(repository?.id, "repository.id"),
-      owner: string(repository?.owner?.login, "repository.owner.login"),
-      name: string(repository?.name, "repository.name"),
-      fullName: string(repository?.full_name, "repository.full_name"),
-    },
+    repository: parseRepository(payload),
     pullRequest: {
       number: number(payload.number, "number"),
       headSha: string(pullRequest?.head?.sha, "pull_request.head.sha"),
+      headRef: string(pullRequest?.head?.ref, "pull_request.head.ref"),
       baseSha: string(pullRequest?.base?.sha, "pull_request.base.sha"),
       title: string(pullRequest?.title, "pull_request.title"),
       body: nullableString(pullRequest?.body, "pull_request.body"),
     },
-    sender: {
-      id: number(payload.sender?.id, "sender.id"),
-      login: string(payload.sender?.login, "sender.login"),
-      type: string(payload.sender?.type, "sender.type"),
-    },
+    sender: parseSender(payload),
+  };
+}
+
+function parseRepository(payload: GitHubPayload) {
+  return {
+    id: number(payload.repository?.id, "repository.id"),
+    owner: string(payload.repository?.owner?.login, "repository.owner.login"),
+    name: string(payload.repository?.name, "repository.name"),
+    fullName: string(payload.repository?.full_name, "repository.full_name"),
+  };
+}
+
+function parseSender(payload: GitHubPayload) {
+  return {
+    id: number(payload.sender?.id, "sender.id"),
+    login: string(payload.sender?.login, "sender.login"),
+    type: string(payload.sender?.type, "sender.type"),
   };
 }
 

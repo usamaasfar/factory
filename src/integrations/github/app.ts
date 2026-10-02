@@ -64,6 +64,17 @@ export class GitHubClient {
     readonly apiUrl = "https://api.github.com",
   ) {}
 
+  async file(owner: string, repository: string, path: string, ref: string): Promise<string> {
+    const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+    const query = new URLSearchParams({ ref });
+    const file = await this.request<{ content: string; encoding: string }>(
+      "GET",
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repository)}/contents/${encodedPath}?${query}`,
+    );
+    if (file.encoding !== "base64") throw new Error(`Unsupported GitHub content encoding: ${file.encoding}`);
+    return Buffer.from(file.content.replaceAll("\n", ""), "base64").toString("utf8");
+  }
+
   async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const response = await fetch(`${this.apiUrl}${path}`, {
       method,

@@ -65,14 +65,16 @@ async function executeAgent(
   database: string,
   sandbox: DockerSandbox,
 ): Promise<string> {
-  return runAgent({
-    sandbox,
-    database,
-    model: workflow.agent.model,
-    instructions: workflow.agent.instructions,
-    prompt: `Execute this workflow for a ${event.type} event. Work only in the provided workspace and verify the result.`,
-    requestId: runId,
-  });
+  return (
+    await runAgent({
+      sandbox,
+      database,
+      model: workflow.agent.model,
+      instructions: workflow.agent.instructions,
+      prompt: `Execute this workflow for a ${event.type} event. Work only in the provided workspace and verify the result.`,
+      requestId: runId,
+    })
+  ).text;
 }
 
 async function copyProject(projectRoot: string, sandbox: DockerSandbox): Promise<void> {

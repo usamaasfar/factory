@@ -19,8 +19,9 @@ export class DockerSandbox {
     void this.#consumeStderr();
   }
 
-  static async start(image: string): Promise<DockerSandbox> {
-    const process = Bun.spawn(["docker", "run", "--rm", "--interactive", image], {
+  static async start(image: string, options: { volume?: string } = {}): Promise<DockerSandbox> {
+    const volume = options.volume ? ["--mount", `type=volume,source=${options.volume},target=/workspace`] : [];
+    const process = Bun.spawn(["docker", "run", "--rm", "--interactive", ...volume, image], {
       stdin: "pipe",
       stdout: "pipe",
       stderr: "pipe",

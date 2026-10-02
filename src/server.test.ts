@@ -14,7 +14,7 @@ const payload = {
   pull_request: {
     title: "Test Factory",
     body: null,
-    head: { sha: "head-sha" },
+    head: { sha: "head-sha", ref: "feature" },
     base: { sha: "base-sha" },
   },
   sender: { id: 99, login: "alice", type: "User" },
