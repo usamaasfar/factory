@@ -4,6 +4,7 @@ import { repositories, workflows } from "./database-schema.ts";
 import type { Workflow } from "./workflows.ts";
 
 export type RegisteredWorkflow = {
+  repositoryId: number;
   path: string;
   revision: string;
   definition: Workflow;
@@ -33,6 +34,7 @@ export function findRegisteredWorkflows(
 ): RegisteredWorkflow[] {
   const registered = database
     .select({
+      repositoryId: repositories.id,
       path: workflows.path,
       revision: workflows.revision,
       definition: workflows.definition,

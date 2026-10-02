@@ -259,6 +259,45 @@ function receivePullRequestReviewComment(
   }
 }
 
+export type GitHubEventRoute = {
+  provider: "github";
+  subject: string;
+};
+
+/**
+ * Maps a workflow event to its durable session route. Only pull-request subjects
+ * are supported today; issue events will add issue routes here without changing callers.
+ */
+export function getGitHubEventRoute(event: GitHubEvent): GitHubEventRoute | undefined {
+  let number: number;
+
+  switch (event.name) {
+    case "pull_request.opened":
+    case "pull_request.reopened":
+    case "pull_request.synchronize":
+    case "pull_request.ready_for_review":
+      number = event.payload.number;
+      break;
+    case "issue_comment.created":
+    case "issue_comment.edited":
+      number = event.payload.issue.number;
+      break;
+    case "pull_request_review.submitted":
+    case "pull_request_review.edited":
+    case "pull_request_review_comment.created":
+    case "pull_request_review_comment.edited":
+      number = event.payload.pull_request.number;
+      break;
+    default:
+      return undefined;
+  }
+
+  return {
+    provider: "github",
+    subject: `repository:${event.payload.repository.id}:pull_request:${number}`,
+  };
+}
+
 function withBody(message: string, body: string | null) {
   return body ? `${message}\n\n${body}` : message;
 }

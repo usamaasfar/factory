@@ -1,9 +1,10 @@
 import { Hono } from "hono";
 import type { FactoryDatabase } from "./database.ts";
 import type { GitHubApp } from "./integrations/github/index.ts";
-import { receiveGitHubWebhook } from "./integrations/github/webhooks.ts";
+import { getGitHubEventRoute, receiveGitHubWebhook } from "./integrations/github/webhooks.ts";
 import { registerGitHubWorkflows } from "./workflow-registration.ts";
 import { findRegisteredWorkflows } from "./workflow-registry.ts";
+import { findOrCreateWorkflowSession } from "./workflow-sessions.ts";
 
 export type ServerOptions = {
   github: GitHubApp;
@@ -33,7 +34,20 @@ export function createServer(options: ServerOptions): Hono {
       });
 
       console.info(`Received GitHub workflow event ${event.name} (${event.deliveryId})`);
-      for (const workflow of matched) console.info(`Matched ${workflow.path} for ${trigger}`);
+      const route = getGitHubEventRoute(event);
+      for (const workflow of matched) {
+        console.info(`Matched ${workflow.path} for ${trigger}`);
+        if (!route) continue;
+
+        const result = findOrCreateWorkflowSession(options.database, {
+          repositoryId: workflow.repositoryId,
+          workflowPath: workflow.path,
+          workflowRevision: workflow.revision,
+          workflowDefinition: workflow.definition,
+          origin: route,
+        });
+        console.info(`${result.created ? "Created" : "Found"} workflow session ${result.session.id}`);
+      }
     }
 
     return context.body(null, 202);
