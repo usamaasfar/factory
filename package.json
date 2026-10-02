@@ -7,6 +7,7 @@
     "format": "biome check --write --files-ignore-unknown=true .",
     "format:check": "biome check --files-ignore-unknown=true .",
     "harness": "bun run src/harness.ts",
+    "run:fixture": "bun run src/run.ts tests",
     "test": "bun test"
   },
   "devDependencies": {

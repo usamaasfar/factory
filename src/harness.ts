@@ -14,55 +14,57 @@ const DEFAULT_PROMPT =
 const DEFAULT_DATABASE = ".factory/state/harness.sqlite";
 const DEFAULT_IMAGE = "factory-sandbox:test";
 
-export async function runHarness(prompt = DEFAULT_PROMPT): Promise<string> {
+export type AgentRunOptions = {
+  sandbox: DockerSandbox;
+  database: string;
+  model: string;
+  instructions: string;
+  prompt: string;
+  requestId: string;
+};
+
+export async function runAgent(options: AgentRunOptions): Promise<string> {
   const context = BACKGROUND_CONTEXT;
-  const database = process.env.FACTORY_DATABASE ?? DEFAULT_DATABASE;
-  const image = process.env.FACTORY_SANDBOX_IMAGE ?? DEFAULT_IMAGE;
-  const modelId = process.env.FACTORY_MODEL ?? "deepseek-flash";
+  await mkdir(dirname(options.database), { recursive: true });
 
-  await mkdir(dirname(database), { recursive: true });
-
-  const sandbox = await DockerSandbox.start(image);
   const models = createModels();
   models.setProvider(deepseekProvider());
-
   const registry = createRegistry();
   registry.install(CodingTools);
 
-  const storage = await openNodeSqliteStorage(database);
+  const storage = await openNodeSqliteStorage(options.database);
   const harness = await Harness.open(
     storage,
     {
       models,
       registry,
       env: ({ cwd, conversationId }) =>
-        new SandboxExecutionEnv(sandbox, { id: `sandbox:${conversationId}`, cwd: cwd ?? "/workspace" }),
+        new SandboxExecutionEnv(options.sandbox, {
+          id: `sandbox:${conversationId}`,
+          cwd: cwd ?? "/workspace",
+        }),
     },
     context,
   );
 
   try {
-    const agent = {
-      model: { provider: "deepseek", modelId },
-      extensions: [CodingTools],
-      instructions:
-        "You are a software engineering agent running in an isolated sandbox. Use the provided tools to complete the request and verify your work.",
-      cwd: "/workspace",
-    } as const;
     const conversation = await harness.createConversation(
       {
         ownership: { kind: "ownerless" },
-        agent,
+        agent: {
+          model: { provider: "deepseek", modelId: options.model },
+          extensions: [CodingTools],
+          instructions: options.instructions,
+          cwd: "/workspace",
+        },
       },
       context,
     );
-
     const submission = await conversation.submit(
-      { type: "input", content: prompt, requestId: crypto.randomUUID() },
+      { type: "input", content: options.prompt, requestId: options.requestId },
       context,
     );
     const settled = await submission.wait(context);
-
     if (settled.status !== "done" || settled.type !== "input") {
       throw new Error(`Harness submission did not complete: ${JSON.stringify(settled)}`);
     }
@@ -78,16 +80,30 @@ export async function runHarness(prompt = DEFAULT_PROMPT): Promise<string> {
           .map((block) => block.text)
           .join("")
       : content;
-
     if (!text) throw new Error("Harness completed without a text response");
     return text;
   } finally {
     await harness.close(context);
+  }
+}
+
+export async function runHarness(prompt = DEFAULT_PROMPT): Promise<string> {
+  const sandbox = await DockerSandbox.start(process.env.FACTORY_SANDBOX_IMAGE ?? DEFAULT_IMAGE);
+  try {
+    return await runAgent({
+      sandbox,
+      database: process.env.FACTORY_DATABASE ?? DEFAULT_DATABASE,
+      model: process.env.FACTORY_MODEL ?? "deepseek-flash",
+      instructions:
+        "You are a software engineering agent running in an isolated sandbox. Use the provided tools to complete the request and verify your work.",
+      prompt,
+      requestId: crypto.randomUUID(),
+    });
+  } finally {
     await sandbox.stop();
   }
 }
 
 if (import.meta.main) {
-  const prompt = process.argv.slice(2).join(" ") || DEFAULT_PROMPT;
-  console.log(await runHarness(prompt));
+  console.log(await runHarness(process.argv.slice(2).join(" ") || DEFAULT_PROMPT));
 }
