@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/usamaasfar/factory">
-    <img alt="factory logo" src="assets/banner.png" width="128">
+    <img src="assets/banner.png" width="800px" alt="Factory - Workflow engineering">
   </a>
 </p>
 <p align="center">
