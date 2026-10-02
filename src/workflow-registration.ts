@@ -7,11 +7,6 @@ import { parseWorkflow } from "./workflows.ts";
 const workflowDirectory = ".factory/workflows";
 const supportedEvents = new Set<string>(githubWorkflowEventNames);
 
-type GitHubRegistrationEvent = Extract<
-  GitHubEvent,
-  { name: "push" | "installation.created" | "installation_repositories.added" }
->;
-
 type RepositoryTarget = {
   installationId: number;
   repositoryId: number;
@@ -23,7 +18,7 @@ type RepositoryTarget = {
 export async function registerGitHubWorkflows(
   app: GitHubApp,
   database: FactoryDatabase,
-  event: GitHubRegistrationEvent,
+  event: GitHubEvent,
 ): Promise<void> {
   if (event.name === "push") {
     const payload = event.payload;
@@ -43,6 +38,8 @@ export async function registerGitHubWorkflows(
     await synchronizeRepository(app, database, target, payload.after);
     return;
   }
+
+  if (event.name !== "installation.created" && event.name !== "installation_repositories.added") return;
 
   // Installation events bootstrap repositories before their next default-branch push.
   const repositories =

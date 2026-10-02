@@ -7,6 +7,7 @@
     "format": "biome check --write --files-ignore-unknown=true .",
     "format:check": "biome check --files-ignore-unknown=true .",
     "db:generate": "drizzle-kit generate",
+    "serve": "bun run src/index.ts",
     "test": "bun test"
   },
   "devDependencies": {
@@ -27,6 +28,7 @@
     "@octokit/webhooks-methods": "^6.0.0",
     "@octokit/webhooks-types": "^7.6.1",
     "drizzle-orm": "^0.45.3",
+    "hono": "^4.13.12",
     "zod": "^4.6.5"
   }
 }
