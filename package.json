@@ -8,6 +8,7 @@
     "format:check": "biome check --files-ignore-unknown=true .",
     "harness": "bun run src/harness.ts",
     "run:fixture": "bun run src/run.ts tests",
+    "serve": "bun run src/server.ts",
     "test": "bun test"
   },
   "devDependencies": {
