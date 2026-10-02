@@ -1,5 +1,9 @@
 import { verify } from "@octokit/webhooks-methods";
 import type {
+  InstallationCreatedEvent,
+  InstallationEvent,
+  InstallationRepositoriesAddedEvent,
+  InstallationRepositoriesEvent,
   IssueCommentCreatedEvent,
   IssueCommentEditedEvent,
   IssueCommentEvent,
@@ -14,39 +18,58 @@ import type {
   PullRequestReviewEvent,
   PullRequestReviewSubmittedEvent,
   PullRequestSynchronizeEvent,
+  PushEvent,
 } from "@octokit/webhooks-types";
 
 type GitHubWebhook<TName extends string, TPayload> = {
   deliveryId: string;
   name: TName;
   payload: TPayload;
+};
+
+type GitHubWorkflowWebhook<TName extends string, TPayload> = GitHubWebhook<TName, TPayload> & {
   prompt: string;
 };
 
-export type GitHubPullRequestOpened = GitHubWebhook<"pull_request.opened", PullRequestOpenedEvent>;
-export type GitHubPullRequestReopened = GitHubWebhook<"pull_request.reopened", PullRequestReopenedEvent>;
-export type GitHubPullRequestSynchronize = GitHubWebhook<"pull_request.synchronize", PullRequestSynchronizeEvent>;
-export type GitHubPullRequestReadyForReview = GitHubWebhook<
+export type GitHubPush = GitHubWebhook<"push", PushEvent>;
+export type GitHubInstallationCreated = GitHubWebhook<"installation.created", InstallationCreatedEvent>;
+export type GitHubInstallationRepositoriesAdded = GitHubWebhook<
+  "installation_repositories.added",
+  InstallationRepositoriesAddedEvent
+>;
+
+export type GitHubRegistrationEvent = GitHubPush | GitHubInstallationCreated | GitHubInstallationRepositoriesAdded;
+
+export type GitHubPullRequestOpened = GitHubWorkflowWebhook<"pull_request.opened", PullRequestOpenedEvent>;
+export type GitHubPullRequestReopened = GitHubWorkflowWebhook<"pull_request.reopened", PullRequestReopenedEvent>;
+export type GitHubPullRequestSynchronize = GitHubWorkflowWebhook<
+  "pull_request.synchronize",
+  PullRequestSynchronizeEvent
+>;
+export type GitHubPullRequestReadyForReview = GitHubWorkflowWebhook<
   "pull_request.ready_for_review",
   PullRequestReadyForReviewEvent
 >;
-export type GitHubIssueCommentCreated = GitHubWebhook<"issue_comment.created", IssueCommentCreatedEvent>;
-export type GitHubIssueCommentEdited = GitHubWebhook<"issue_comment.edited", IssueCommentEditedEvent>;
-export type GitHubPullRequestReviewSubmitted = GitHubWebhook<
+export type GitHubIssueCommentCreated = GitHubWorkflowWebhook<"issue_comment.created", IssueCommentCreatedEvent>;
+export type GitHubIssueCommentEdited = GitHubWorkflowWebhook<"issue_comment.edited", IssueCommentEditedEvent>;
+export type GitHubPullRequestReviewSubmitted = GitHubWorkflowWebhook<
   "pull_request_review.submitted",
   PullRequestReviewSubmittedEvent
 >;
-export type GitHubPullRequestReviewEdited = GitHubWebhook<"pull_request_review.edited", PullRequestReviewEditedEvent>;
-export type GitHubPullRequestReviewCommentCreated = GitHubWebhook<
+export type GitHubPullRequestReviewEdited = GitHubWorkflowWebhook<
+  "pull_request_review.edited",
+  PullRequestReviewEditedEvent
+>;
+export type GitHubPullRequestReviewCommentCreated = GitHubWorkflowWebhook<
   "pull_request_review_comment.created",
   PullRequestReviewCommentCreatedEvent
 >;
-export type GitHubPullRequestReviewCommentEdited = GitHubWebhook<
+export type GitHubPullRequestReviewCommentEdited = GitHubWorkflowWebhook<
   "pull_request_review_comment.edited",
   PullRequestReviewCommentEditedEvent
 >;
 
-export type GitHubWebhookEvent =
+export type GitHubWorkflowEvent =
   | GitHubPullRequestOpened
   | GitHubPullRequestReopened
   | GitHubPullRequestSynchronize
@@ -57,6 +80,8 @@ export type GitHubWebhookEvent =
   | GitHubPullRequestReviewEdited
   | GitHubPullRequestReviewCommentCreated
   | GitHubPullRequestReviewCommentEdited;
+
+export type GitHubWebhookEvent = GitHubRegistrationEvent | GitHubWorkflowEvent;
 
 /** Verifies and reads a supported GitHub webhook request. */
 export async function receiveGitHubWebhook(request: Request, secret: string): Promise<GitHubWebhookEvent | undefined> {
@@ -73,6 +98,12 @@ export async function receiveGitHubWebhook(request: Request, secret: string): Pr
   const payload: unknown = JSON.parse(body);
 
   switch (event) {
+    case "push":
+      return { deliveryId, name: "push", payload: payload as PushEvent };
+    case "installation":
+      return receiveInstallation(deliveryId, payload as InstallationEvent);
+    case "installation_repositories":
+      return receiveInstallationRepositories(deliveryId, payload as InstallationRepositoriesEvent);
     case "pull_request":
       return receivePullRequest(deliveryId, payload as PullRequestEvent);
     case "issue_comment":
@@ -86,7 +117,20 @@ export async function receiveGitHubWebhook(request: Request, secret: string): Pr
   }
 }
 
-function receivePullRequest(deliveryId: string, payload: PullRequestEvent): GitHubWebhookEvent | undefined {
+function receiveInstallation(deliveryId: string, payload: InstallationEvent): GitHubInstallationCreated | undefined {
+  if (payload.action !== "created") return undefined;
+  return { deliveryId, name: "installation.created", payload };
+}
+
+function receiveInstallationRepositories(
+  deliveryId: string,
+  payload: InstallationRepositoriesEvent,
+): GitHubInstallationRepositoriesAdded | undefined {
+  if (payload.action !== "added") return undefined;
+  return { deliveryId, name: "installation_repositories.added", payload };
+}
+
+function receivePullRequest(deliveryId: string, payload: PullRequestEvent): GitHubWorkflowEvent | undefined {
   switch (payload.action) {
     case "opened":
       return {
@@ -121,7 +165,7 @@ function receivePullRequest(deliveryId: string, payload: PullRequestEvent): GitH
   }
 }
 
-function receiveIssueComment(deliveryId: string, payload: IssueCommentEvent): GitHubWebhookEvent | undefined {
+function receiveIssueComment(deliveryId: string, payload: IssueCommentEvent): GitHubWorkflowEvent | undefined {
   if (!payload.issue.pull_request) return undefined;
 
   switch (payload.action) {
@@ -144,7 +188,10 @@ function receiveIssueComment(deliveryId: string, payload: IssueCommentEvent): Gi
   }
 }
 
-function receivePullRequestReview(deliveryId: string, payload: PullRequestReviewEvent): GitHubWebhookEvent | undefined {
+function receivePullRequestReview(
+  deliveryId: string,
+  payload: PullRequestReviewEvent,
+): GitHubWorkflowEvent | undefined {
   switch (payload.action) {
     case "submitted":
       return {
@@ -174,7 +221,7 @@ function receivePullRequestReview(deliveryId: string, payload: PullRequestReview
 function receivePullRequestReviewComment(
   deliveryId: string,
   payload: PullRequestReviewCommentEvent,
-): GitHubWebhookEvent | undefined {
+): GitHubWorkflowEvent | undefined {
   const line = payload.comment.line ?? payload.comment.original_line;
   const location = `${payload.comment.path}${line == null ? "" : `:${line}`}`;
 

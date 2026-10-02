@@ -1,4 +1,5 @@
 import { integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import type { Workflow } from "./workflows.ts";
 
 export const repositories = sqliteTable(
   "repositories",
@@ -25,7 +26,7 @@ export const workflows = sqliteTable(
     revision: text().notNull(),
     source: text().notNull(),
     // Keep validated JSON beside the original source so execution does not parse YAML again.
-    definition: text({ mode: "json" }).$type<Record<string, unknown>>().notNull(),
+    definition: text({ mode: "json" }).$type<Workflow>().notNull(),
   },
   (table) => [primaryKey({ columns: [table.repositoryId, table.path] })],
 );

@@ -17,6 +17,26 @@ export type GitHubRepositoryOptions = GitHubClientOptions & {
   repository: string;
 };
 
+export type GitHubRepositoryInfo = {
+  id: number;
+  owner: string;
+  name: string;
+  defaultBranch: string;
+};
+
+export type GitHubBranch = {
+  name: string;
+  sha: string;
+};
+
+export type GitHubDirectoryEntry = {
+  name: string;
+  path: string;
+  sha: string;
+  size: number;
+  type: "file" | "dir" | "symlink" | "submodule";
+};
+
 /** Authenticates a GitHub App and creates repository-scoped clients. */
 export class GitHubApp {
   readonly #auth: ReturnType<typeof createAppAuth>;
@@ -48,8 +68,10 @@ export class GitHubApp {
   }
 }
 
-/** Authenticated Git transport for one GitHub repository. */
+/** Authenticated API and Git access for one GitHub repository. */
 export class GitHubRepository {
+  readonly #owner: string;
+  readonly #repository: string;
   readonly #url: string;
   readonly #authenticate: () => Promise<string>;
 
@@ -58,8 +80,60 @@ export class GitHubRepository {
     repository: string;
     authenticate: () => Promise<string>;
   }) {
+    this.#owner = options.owner;
+    this.#repository = options.repository;
     this.#url = `https://github.com/${options.owner}/${options.repository}.git`;
     this.#authenticate = options.authenticate;
+  }
+
+  async info(): Promise<GitHubRepositoryInfo> {
+    const response = await (await this.#client()).rest.repos.get({
+      owner: this.#owner,
+      repo: this.#repository,
+    });
+
+    return {
+      id: response.data.id,
+      owner: response.data.owner.login,
+      name: response.data.name,
+      defaultBranch: response.data.default_branch,
+    };
+  }
+
+  async defaultBranch(): Promise<GitHubBranch> {
+    const info = await this.info();
+    const response = await (await this.#client()).rest.repos.getBranch({
+      owner: this.#owner,
+      repo: this.#repository,
+      branch: info.defaultBranch,
+    });
+    return { name: info.defaultBranch, sha: response.data.commit.sha };
+  }
+
+  async listDirectory(path: string, revision: string): Promise<GitHubDirectoryEntry[]> {
+    const response = await (await this.#client()).rest.repos.getContent({
+      owner: this.#owner,
+      repo: this.#repository,
+      path,
+      ref: revision,
+    });
+    if (!Array.isArray(response.data)) throw new Error(`${path} is not a directory`);
+
+    return response.data.map(({ name, path, sha, size, type }) => ({ name, path, sha, size, type }));
+  }
+
+  async readFile(path: string, revision: string): Promise<string> {
+    const response = await (await this.#client()).rest.repos.getContent({
+      owner: this.#owner,
+      repo: this.#repository,
+      path,
+      ref: revision,
+    });
+    if (Array.isArray(response.data) || response.data.type !== "file" || !("content" in response.data)) {
+      throw new Error(`${path} is not a file`);
+    }
+    if (response.data.encoding !== "base64") throw new Error(`Unsupported encoding for ${path}`);
+    return Buffer.from(response.data.content, "base64").toString("utf8");
   }
 
   async clone(directory: string, revision: string): Promise<void> {
@@ -68,6 +142,10 @@ export class GitHubRepository {
 
   async publishBundle(options: PublishGitBundleOptions): Promise<string> {
     return (await this.#remote()).publishBundle(options);
+  }
+
+  async #client(): Promise<Octokit> {
+    return new Octokit({ auth: await this.#authenticate() });
   }
 
   async #remote(): Promise<GitHttpRemote> {
