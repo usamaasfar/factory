@@ -1,15 +1,11 @@
-# factory
+# Factory
 
-To install dependencies:
+Factory is a workflow engineering platform for automating repeatable software work—such as reviewing code, triaging issues, and fixing bugs—in isolated sandboxes.
+
+Workflows and their execution environments are defined in `.factory/`.
+
+## Development
 
 ```bash
 bun install
 ```
-
-To run:
-
-```bash
-bun run index.ts
-```
-
-This project was created using `bun init` in bun v1.4.2. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
