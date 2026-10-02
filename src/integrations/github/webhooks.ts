@@ -38,8 +38,6 @@ export type GitHubInstallationRepositoriesAdded = GitHubWebhook<
   InstallationRepositoriesAddedEvent
 >;
 
-export type GitHubRegistrationEvent = GitHubPush | GitHubInstallationCreated | GitHubInstallationRepositoriesAdded;
-
 export type GitHubPullRequestOpened = GitHubWorkflowWebhook<"pull_request.opened", PullRequestOpenedEvent>;
 export type GitHubPullRequestReopened = GitHubWorkflowWebhook<"pull_request.reopened", PullRequestReopenedEvent>;
 export type GitHubPullRequestSynchronize = GitHubWorkflowWebhook<
@@ -69,7 +67,10 @@ export type GitHubPullRequestReviewCommentEdited = GitHubWorkflowWebhook<
   PullRequestReviewCommentEditedEvent
 >;
 
-export type GitHubWorkflowEvent =
+export type GitHubEvent =
+  | GitHubPush
+  | GitHubInstallationCreated
+  | GitHubInstallationRepositoriesAdded
   | GitHubPullRequestOpened
   | GitHubPullRequestReopened
   | GitHubPullRequestSynchronize
@@ -81,10 +82,22 @@ export type GitHubWorkflowEvent =
   | GitHubPullRequestReviewCommentCreated
   | GitHubPullRequestReviewCommentEdited;
 
-export type GitHubWebhookEvent = GitHubRegistrationEvent | GitHubWorkflowEvent;
+// Registration rejects triggers that this integration cannot currently deliver.
+export const githubWorkflowEventNames = [
+  "github.pull_request.opened",
+  "github.pull_request.reopened",
+  "github.pull_request.synchronize",
+  "github.pull_request.ready_for_review",
+  "github.issue_comment.created",
+  "github.issue_comment.edited",
+  "github.pull_request_review.submitted",
+  "github.pull_request_review.edited",
+  "github.pull_request_review_comment.created",
+  "github.pull_request_review_comment.edited",
+] as const;
 
 /** Verifies and reads a supported GitHub webhook request. */
-export async function receiveGitHubWebhook(request: Request, secret: string): Promise<GitHubWebhookEvent | undefined> {
+export async function receiveGitHubWebhook(request: Request, secret: string): Promise<GitHubEvent | undefined> {
   const deliveryId = request.headers.get("x-github-delivery");
   const event = request.headers.get("x-github-event");
   const signature = request.headers.get("x-hub-signature-256");
@@ -99,7 +112,7 @@ export async function receiveGitHubWebhook(request: Request, secret: string): Pr
 
   switch (event) {
     case "push":
-      return { deliveryId, name: "push", payload: payload as PushEvent };
+      return receivePush(deliveryId, payload as PushEvent);
     case "installation":
       return receiveInstallation(deliveryId, payload as InstallationEvent);
     case "installation_repositories":
@@ -117,6 +130,10 @@ export async function receiveGitHubWebhook(request: Request, secret: string): Pr
   }
 }
 
+function receivePush(deliveryId: string, payload: PushEvent): GitHubPush {
+  return { deliveryId, name: "push", payload };
+}
+
 function receiveInstallation(deliveryId: string, payload: InstallationEvent): GitHubInstallationCreated | undefined {
   if (payload.action !== "created") return undefined;
   return { deliveryId, name: "installation.created", payload };
@@ -130,7 +147,7 @@ function receiveInstallationRepositories(
   return { deliveryId, name: "installation_repositories.added", payload };
 }
 
-function receivePullRequest(deliveryId: string, payload: PullRequestEvent): GitHubWorkflowEvent | undefined {
+function receivePullRequest(deliveryId: string, payload: PullRequestEvent): GitHubEvent | undefined {
   switch (payload.action) {
     case "opened":
       return {
@@ -165,7 +182,7 @@ function receivePullRequest(deliveryId: string, payload: PullRequestEvent): GitH
   }
 }
 
-function receiveIssueComment(deliveryId: string, payload: IssueCommentEvent): GitHubWorkflowEvent | undefined {
+function receiveIssueComment(deliveryId: string, payload: IssueCommentEvent): GitHubEvent | undefined {
   if (!payload.issue.pull_request) return undefined;
 
   switch (payload.action) {
@@ -188,10 +205,7 @@ function receiveIssueComment(deliveryId: string, payload: IssueCommentEvent): Gi
   }
 }
 
-function receivePullRequestReview(
-  deliveryId: string,
-  payload: PullRequestReviewEvent,
-): GitHubWorkflowEvent | undefined {
+function receivePullRequestReview(deliveryId: string, payload: PullRequestReviewEvent): GitHubEvent | undefined {
   switch (payload.action) {
     case "submitted":
       return {
@@ -221,7 +235,7 @@ function receivePullRequestReview(
 function receivePullRequestReviewComment(
   deliveryId: string,
   payload: PullRequestReviewCommentEvent,
-): GitHubWorkflowEvent | undefined {
+): GitHubEvent | undefined {
   const line = payload.comment.line ?? payload.comment.original_line;
   const location = `${payload.comment.path}${line == null ? "" : `:${line}`}`;
 

@@ -100,6 +100,7 @@ export class GitHubRepository {
     };
   }
 
+  /** Resolves the default branch and its current commit in one logical operation. */
   async defaultBranch(): Promise<GitHubBranch> {
     const info = await this.info();
     const response = await (await this.#client()).rest.repos.getBranch({
@@ -110,6 +111,7 @@ export class GitHubRepository {
     return { name: info.defaultBranch, sha: response.data.commit.sha };
   }
 
+  /** Lists one repository directory at an immutable branch or commit revision. */
   async listDirectory(path: string, revision: string): Promise<GitHubDirectoryEntry[]> {
     const response = await (await this.#client()).rest.repos.getContent({
       owner: this.#owner,
@@ -122,6 +124,7 @@ export class GitHubRepository {
     return response.data.map(({ name, path, sha, size, type }) => ({ name, path, sha, size, type }));
   }
 
+  /** Reads a UTF-8 repository file at an immutable branch or commit revision. */
   async readFile(path: string, revision: string): Promise<string> {
     const response = await (await this.#client()).rest.repos.getContent({
       owner: this.#owner,
