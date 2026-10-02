@@ -3,6 +3,7 @@ import type { FactoryDatabase } from "./database.ts";
 import type { GitHubApp } from "./integrations/github/index.ts";
 import { receiveGitHubWebhook } from "./integrations/github/webhooks.ts";
 import { registerGitHubWorkflows } from "./workflow-registration.ts";
+import { findRegisteredWorkflows } from "./workflow-registry.ts";
 
 export type ServerOptions = {
   github: GitHubApp;
@@ -22,7 +23,18 @@ export function createServer(options: ServerOptions): Hono {
     if (!event) return context.body(null, 204);
 
     await registerGitHubWorkflows(options.github, options.database, event);
-    if ("prompt" in event) console.info(`Received GitHub workflow event ${event.name} (${event.deliveryId})`);
+
+    if ("prompt" in event) {
+      const trigger = `github.${event.name}`;
+      const matched = findRegisteredWorkflows(options.database, {
+        provider: "github",
+        repositoryId: String(event.payload.repository.id),
+        event: trigger,
+      });
+
+      console.info(`Received GitHub workflow event ${event.name} (${event.deliveryId})`);
+      for (const workflow of matched) console.info(`Matched ${workflow.path} for ${trigger}`);
+    }
 
     return context.body(null, 202);
   });

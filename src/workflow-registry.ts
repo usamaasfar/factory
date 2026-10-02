@@ -1,7 +1,13 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { FactoryDatabase } from "./database.ts";
 import { repositories, workflows } from "./database-schema.ts";
 import type { Workflow } from "./workflows.ts";
+
+export type RegisteredWorkflow = {
+  path: string;
+  revision: string;
+  definition: Workflow;
+};
 
 export type WorkflowSnapshot = {
   repository: {
@@ -19,6 +25,25 @@ export type WorkflowSnapshot = {
     definition: Workflow;
   }>;
 };
+
+/** Returns the registered workflows that subscribe to one provider event. */
+export function findRegisteredWorkflows(
+  database: FactoryDatabase,
+  options: { provider: string; repositoryId: string; event: string },
+): RegisteredWorkflow[] {
+  const registered = database
+    .select({
+      path: workflows.path,
+      revision: workflows.revision,
+      definition: workflows.definition,
+    })
+    .from(workflows)
+    .innerJoin(repositories, eq(workflows.repositoryId, repositories.id))
+    .where(and(eq(repositories.provider, options.provider), eq(repositories.providerId, options.repositoryId)))
+    .all();
+
+  return registered.filter((workflow) => Object.hasOwn(workflow.definition.on, options.event));
+}
 
 /**
  * Replaces a repository's workflow registry with one complete, validated snapshot.
