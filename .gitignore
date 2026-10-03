@@ -38,6 +38,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Agents
 .memory
+.agents
+.pi
+skills-lock.json
 
 src/deps
 drizzle
