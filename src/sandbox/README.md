@@ -21,7 +21,9 @@ The workspace and image survive container replacement. The container and its pro
 
 - `workspace.ts` creates or verifies the workspace owned by one workflow session.
 - `image.ts` builds or reuses an image from a trusted managed environment script.
-- `docker.ts` starts the constrained container and executes commands in it.
+- `docker.ts` starts the constrained container and executes serialized processes in it.
+- `filesystem.ts` is the small filesystem helper copied into managed images and invoked inside the container.
+- `execution-env.ts` implements Pi Durable's complete `ExecutionEnv` contract.
 - `index.ts` is the directory's public API.
 - `workspace.test.ts` covers workspace creation, safe reuse, and input validation.
 
@@ -62,7 +64,7 @@ Managed images provide an unprivileged `factory` user and `/workspace`. Support 
 - no host Docker socket or credentials, and
 - explicit `bridge` or disabled networking.
 
-Commands run through `/bin/bash -lc` inside the container. Only one command runs at a time. Output can be consumed as chunks while still being returned as final stdout and stderr.
+Commands run through `/bin/bash -lc` inside the container. Concurrent requests queue because cancelling one command replaces the whole container. Output can be consumed as chunks without retaining an unbounded copy in host memory.
 
 A timeout or `AbortSignal` cancellation removes the whole container. Killing only the local `docker exec` client would not reliably terminate every descendant process. The next command recreates the container and remounts the unchanged workspace.
 
@@ -88,6 +90,16 @@ sandbox
 
 Shell commands may inspect the container's own filesystem. They cannot access host paths other than the mounted workspace.
 
+## Pi Durable execution environment
+
+`DockerExecutionEnv` implements Pi Durable's documented filesystem and shell interfaces. Its `id` is the sandbox's stable workflow-session identity and its `cwd` defaults to `/workspace`.
+
+Filesystem requests are sent as JSON to the read-only helper installed at `/usr/local/lib/factory/filesystem.ts`. File contents are base64 encoded, so arbitrary bytes survive the JSON boundary. Paths are lexically confined to `/workspace`; the helper also resolves existing paths and parents inside the container to reject symlink escapes. File errors are returned as Pi `FileError` values instead of being thrown.
+
+Shell timeouts are specified by Pi in seconds and converted to Docker's millisecond timer. `Context.abortSignal` cancels both filesystem and shell operations. Shell output streams to Pi as it arrives. When Pi's byte or line threshold is crossed, the complete output is retained under `.git/factory/tmp/`, outside the Git working tree. This internally generated spill file is the one narrow host-side write: its path is not model-controlled, and it refers to the same workspace mounted into the container.
+
+`cleanup()` does not stop the sandbox because Pi may create a fresh environment object for every tool call. The workflow-session lifecycle owner stops the shared container after work settles.
+
 ## Publishing
 
 Publishing is host-mediated and is not implemented in this directory. The existing trusted-host `GitHttpRemote.publishBundle()` verifies the expected remote head, verifies the Git bundle, requires a fast-forward relationship, and performs a non-force authenticated push without persisting credentials.
@@ -96,4 +108,4 @@ The remaining integration must let the sandbox create a Git bundle, transfer tha
 
 ## Next integration
 
-The next layer is a Pi Durable `ExecutionEnv` adapter. It will map native `read`, `write`, `edit`, and `bash` operations onto this sandbox while keeping filesystem operations in the container namespace. Creating the global Pi harness and submitting a model event comes after that adapter is verified.
+The adapter has been verified directly and through Pi Durable's native `read`, `write`, `edit`, and `bash` tools without invoking a model. The next checkpoint is the global Pi Durable storage and harness, conversation linkage through `workflow_sessions.conversation_id`, and the first factual event submission.

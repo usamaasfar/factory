@@ -11,9 +11,11 @@ export type SandboxCommandResult = {
 export type SandboxCommandOptions = {
   cwd?: string;
   env?: Record<string, string>;
+  inheritEnv?: boolean;
   signal?: AbortSignal;
   timeout?: number;
   onOutput?: (text: string) => void;
+  captureOutput?: boolean;
 };
 
 export class SandboxCommandInterrupted extends Error {
@@ -35,15 +37,21 @@ type DockerSandboxOptions = {
   network?: "bridge" | "none";
 };
 
+type SandboxProcessOptions = SandboxCommandOptions & {
+  stdin?: string | Uint8Array;
+};
+
 /** A disposable Docker container backed by a persistent, credential-free workspace. */
 export class DockerSandbox {
   readonly id: string;
+  readonly workspace: string;
   readonly #options: DockerSandboxOptions;
   #containerId?: string;
-  #executing = false;
+  #queue: Promise<void> = Promise.resolve();
 
   private constructor(options: DockerSandboxOptions) {
     this.id = `factory:workflow-session:${options.sessionId}`;
+    this.workspace = resolve(options.workspace);
     this.#options = options;
   }
 
@@ -59,30 +67,73 @@ export class DockerSandbox {
   }
 
   async exec(command: string, options: SandboxCommandOptions = {}): Promise<SandboxCommandResult> {
-    if (this.#executing) throw new Error("The sandbox is already executing a command");
+    const environment = environmentEntries(options.env);
+    const process =
+      options.inheritEnv === false
+        ? ["/usr/bin/env", "-i", ...environment, "/bin/bash", "-lc", command]
+        : ["/bin/bash", "-lc", command];
+    return this.run(process, options.inheritEnv === false ? { ...options, env: undefined } : options);
+  }
+
+  async run(command: string[], options: SandboxProcessOptions = {}): Promise<SandboxCommandResult> {
+    const previous = this.#queue;
+    let release = () => {};
+    this.#queue = new Promise((resolve) => {
+      release = resolve;
+    });
+    await previous;
+
+    try {
+      return await this.#run(command, options);
+    } finally {
+      release();
+    }
+  }
+
+  async #run(command: string[], options: SandboxProcessOptions): Promise<SandboxCommandResult> {
+    if (command.length === 0 || command.some((argument) => argument.includes("\0"))) {
+      throw new Error("Sandbox process arguments must be non-empty and contain no NUL bytes");
+    }
     if (options.signal?.aborted) throw new SandboxCommandInterrupted("aborted");
     if (options.timeout !== undefined && (!Number.isFinite(options.timeout) || options.timeout <= 0)) {
       throw new Error(`Invalid command timeout: ${options.timeout}`);
     }
 
-    this.#executing = true;
     let timeout: ReturnType<typeof setTimeout> | undefined;
     let abort: (() => void) | undefined;
 
     try {
       const containerId = await this.#runningContainer();
-      const args = ["docker", "exec", "--workdir", workspacePath(options.cwd ?? WORKSPACE)];
-      for (const [name, value] of Object.entries(options.env ?? {})) {
-        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) || value.includes("\0")) {
-          throw new Error(`Invalid environment variable: ${name}`);
-        }
-        args.push("--env", `${name}=${value}`);
-      }
-      args.push(containerId, "/bin/bash", "-lc", command);
+      const args = ["docker", "exec"];
+      if (options.stdin !== undefined) args.push("--interactive");
+      args.push("--workdir", workspacePath(options.cwd ?? WORKSPACE));
+      for (const entry of environmentEntries(options.env)) args.push("--env", entry);
+      args.push(containerId, ...command);
 
-      const child = Bun.spawn(args, { stdout: "pipe", stderr: "pipe" });
-      const stdout = readOutput(child.stdout, options.onOutput);
-      const stderr = readOutput(child.stderr, options.onOutput);
+      const child = Bun.spawn(args, {
+        stdin: options.stdin === undefined ? "ignore" : "pipe",
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      if (options.stdin !== undefined) {
+        if (!child.stdin) {
+          await this.#removeContainer();
+          child.kill();
+          throw new Error("Docker exec did not open stdin");
+        }
+        try {
+          child.stdin.write(options.stdin);
+          child.stdin.end();
+        } catch (error) {
+          await this.#removeContainer();
+          child.kill();
+          throw error;
+        }
+      }
+
+      const capture = options.captureOutput ?? true;
+      const stdout = readOutput(child.stdout, capture, options.onOutput);
+      const stderr = readOutput(child.stderr, capture, options.onOutput);
       const interrupted = new Promise<never>((_, reject) => {
         const interrupt = (reason: "aborted" | "timeout") => reject(new SandboxCommandInterrupted(reason));
         abort = () => interrupt("aborted");
@@ -98,8 +149,8 @@ export class DockerSandbox {
         ]);
         return { exitCode, stdout: stdoutText, stderr: stderrText };
       } catch (error) {
-        // Docker has no reliable CLI operation for signalling one exec process tree. Destroying the disposable
-        // container guarantees that an aborted command cannot continue in the background.
+        // Docker cannot reliably signal one exec process tree through its CLI. Destroying the disposable container
+        // guarantees that an interrupted command cannot continue in the background.
         await this.#removeContainer();
         child.kill();
         await Promise.allSettled([stdout, stderr, child.exited]);
@@ -108,7 +159,6 @@ export class DockerSandbox {
     } finally {
       if (timeout !== undefined) clearTimeout(timeout);
       if (abort) options.signal?.removeEventListener("abort", abort);
-      this.#executing = false;
     }
   }
 
@@ -123,7 +173,6 @@ export class DockerSandbox {
   }
 
   async #createContainer(): Promise<string> {
-    const workspace = resolve(this.#options.workspace);
     const containerId = await output([
       "docker",
       "run",
@@ -132,7 +181,7 @@ export class DockerSandbox {
       "--init",
       "--read-only",
       "--mount",
-      `type=bind,source=${workspace},target=${WORKSPACE}`,
+      `type=bind,source=${this.workspace},target=${WORKSPACE}`,
       "--tmpfs",
       "/tmp:rw,nosuid,size=256m",
       "--tmpfs",
@@ -182,7 +231,20 @@ function workspacePath(path: string): string {
   return absolute;
 }
 
-async function readOutput(stream: ReadableStream<Uint8Array>, onOutput?: (text: string) => void): Promise<string> {
+function environmentEntries(environment: Record<string, string> | undefined): string[] {
+  return Object.entries(environment ?? {}).map(([name, value]) => {
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) || value.includes("\0")) {
+      throw new Error(`Invalid environment variable: ${name}`);
+    }
+    return `${name}=${value}`;
+  });
+}
+
+async function readOutput(
+  stream: ReadableStream<Uint8Array>,
+  capture: boolean,
+  onOutput?: (text: string) => void,
+): Promise<string> {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   let output = "";
@@ -191,12 +253,12 @@ async function readOutput(stream: ReadableStream<Uint8Array>, onOutput?: (text: 
     const { done, value } = await reader.read();
     if (done) break;
     const text = decoder.decode(value, { stream: true });
-    output += text;
+    if (capture) output += text;
     if (text) onOutput?.(text);
   }
 
   const tail = decoder.decode();
-  output += tail;
+  if (capture) output += tail;
   if (tail) onOutput?.(tail);
   return output;
 }
