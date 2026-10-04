@@ -41,6 +41,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .agents
 .pi
 skills-lock.json
+AGENTS.md
 
-src/deps
 drizzle
