@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get update
+apt-get install -y --no-install-recommends \
+  ca-certificates \
+  curl \
+  git \
+  jq \
+  ripgrep \
+  unzip
+rm -rf /var/lib/apt/lists/*
+
+export BUN_INSTALL=/usr/local
+curl -fsSL https://bun.com/install | bash -s "bun-v1.3.14"
+
+bun --version

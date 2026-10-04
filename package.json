@@ -1,0 +1,35 @@
+{
+  "name": "factory",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "format": "biome check --write --files-ignore-unknown=true .",
+    "format:check": "biome check --files-ignore-unknown=true .",
+    "db:generate": "drizzle-kit generate",
+    "serve": "bun run src/index.ts",
+    "dev": "bun --hot run src/index.ts",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
+    "@types/bun": "latest",
+    "drizzle-kit": "^0.31.11",
+    "lefthook": "^2.1.16"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  },
+  "dependencies": {
+    "@earendil-works/chord": "^1.0.2",
+    "@earendil-works/pi-ai": "^1.0.2",
+    "@earendil-works/pi-durable": "^1.0.2",
+    "@octokit/auth-app": "^8.3.1",
+    "@octokit/rest": "^22.0.1",
+    "@octokit/webhooks-methods": "^6.0.0",
+    "@octokit/webhooks-types": "^7.6.1",
+    "drizzle-orm": "^0.45.3",
+    "hono": "^4.13.12",
+    "zod": "^4.6.5"
+  }
+}
