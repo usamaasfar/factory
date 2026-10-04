@@ -1,9 +1,10 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import type { Harness } from "@earendil-works/pi-durable";
 import { Hono } from "hono";
 import type { FactoryDatabase } from "./database.ts";
+import type { Durable } from "./durable.ts";
 import type { GitHubApp } from "./integrations/github/index.ts";
 import { getGitHubEventRoute, receiveGitHubWebhook } from "./integrations/github/webhooks.ts";
+import { prepareGitHubWorkspace } from "./integrations/github/workflow.ts";
 import { registerGitHubWorkflows } from "./workflow-registration.ts";
 import { findRegisteredWorkflows } from "./workflow-registry.ts";
 import { runWorkflowEvent } from "./workflow-runner.ts";
@@ -12,7 +13,7 @@ import { findOrCreateWorkflowSession } from "./workflow-sessions.ts";
 export type ServerOptions = {
   github: GitHubApp;
   database: FactoryDatabase;
-  harness: Harness;
+  durable: Durable;
   githubWebhookSecret: string;
 };
 
@@ -52,7 +53,7 @@ export function createServer(options: ServerOptions): Hono {
         });
         console.info(`${result.created ? "Created" : "Found"} workflow session ${result.session.id}`);
         await runWorkflowEvent(
-          options.harness,
+          options.durable.harness,
           options.database,
           result.session,
           { id: `github:${event.deliveryId}`, prompt: event.prompt },

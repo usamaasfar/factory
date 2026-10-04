@@ -11,6 +11,7 @@ import { createServer } from "./server.ts";
 const databasePath = Bun.env.DATABASE_PATH ?? ".factory/state/factory.sqlite";
 if (databasePath !== ":memory:") mkdirSync(dirname(databasePath), { recursive: true });
 
+const database = openDatabase(databasePath);
 const github = new GitHubApp({
   appId: required("GITHUB_APP_ID"),
   privateKey: required("GITHUB_PRIVATE_KEY"),
@@ -18,7 +19,7 @@ const github = new GitHubApp({
 
 const models = createModels();
 models.setProvider(deepseekProvider());
-const harness = await openDurable(
+const durable = await openDurable(
   Bun.env.PI_DATABASE_PATH ?? ".factory/state/pi.sqlite",
   { models, image: Bun.env.SANDBOX_IMAGE ?? "debian:bookworm-slim" },
   BACKGROUND_CONTEXT,
@@ -26,8 +27,8 @@ const harness = await openDurable(
 
 const app = createServer({
   github,
-  database: openDatabase(databasePath),
-  harness,
+  database,
+  durable,
   githubWebhookSecret: required("GITHUB_WEBHOOK_SECRET"),
 });
 

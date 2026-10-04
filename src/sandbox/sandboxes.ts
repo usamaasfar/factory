@@ -1,4 +1,4 @@
-import { posix } from "node:path";
+import { posix, resolve } from "node:path";
 import type { Context } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import type { ConversationId } from "@earendil-works/pi-durable";
@@ -20,19 +20,28 @@ export class Sandboxes {
   }
 
   async open(conversationId: ConversationId, context: Context): Promise<DockerExecutionEnv> {
-    let sandbox = this.#sandboxes.get(conversationId);
-    if (!sandbox) {
-      sandbox = new DockerSandbox(String(conversationId), this.#image);
-      this.#sandboxes.set(conversationId, sandbox);
-    }
+    const sandbox = this.#get(conversationId);
     await sandbox.ensure(context);
     return new DockerExecutionEnv(sandbox);
+  }
+
+  async replace(conversationId: ConversationId, directory: string, context: Context): Promise<void> {
+    await this.#get(conversationId).replace(directory, context);
   }
 
   async close(context: Context): Promise<void> {
     const sandboxes = [...this.#sandboxes.values()];
     this.#sandboxes.clear();
     await Promise.all(sandboxes.map((sandbox) => sandbox.remove(context)));
+  }
+
+  #get(conversationId: ConversationId): DockerSandbox {
+    let sandbox = this.#sandboxes.get(conversationId);
+    if (!sandbox) {
+      sandbox = new DockerSandbox(String(conversationId), this.#image);
+      this.#sandboxes.set(conversationId, sandbox);
+    }
+    return sandbox;
   }
 }
 
@@ -103,6 +112,26 @@ export class DockerSandbox {
     return run(args, options, context, () => this.remove(BACKGROUND_CONTEXT));
   }
 
+  async replace(directory: string, context: Context): Promise<void> {
+    await this.ensure(context);
+    await checkedDocker(
+      [
+        "run",
+        "--rm",
+        "--mount",
+        `type=volume,source=${this.volume},target=${WORKSPACE}`,
+        "--mount",
+        `type=bind,source=${resolve(directory)},target=/source,readonly`,
+        "--entrypoint",
+        "/bin/sh",
+        this.#image,
+        "-c",
+        "find /workspace -mindepth 1 -maxdepth 1 -exec rm -rf -- {} + && cp -a /source/. /workspace/",
+      ],
+      context,
+    );
+  }
+
   async remove(context: Context): Promise<void> {
     const result = await docker(["rm", "--force", this.name], context, true);
     if (result.exitCode !== 0 && !result.stderr.includes("No such container")) {
@@ -159,7 +188,7 @@ async function checkedDocker(args: string[], context: Context): Promise<SandboxP
   return result;
 }
 
-function docker(args: string[], context: Context, allowFailure = false): Promise<SandboxProcessResult> {
+async function docker(args: string[], context: Context, allowFailure = false): Promise<SandboxProcessResult> {
   return run(["docker", ...args], undefined, context).then((result) => {
     if (!allowFailure && result.exitCode !== 0) throw new Error(`docker ${args[0]} failed: ${result.stderr.trim()}`);
     return result;

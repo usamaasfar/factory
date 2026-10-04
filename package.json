@@ -8,6 +8,7 @@
     "format:check": "biome check --files-ignore-unknown=true .",
     "db:generate": "drizzle-kit generate",
     "serve": "bun run src/index.ts",
+    "dev": "bun --hot run src/index.ts",
     "test": "bun test"
   },
   "devDependencies": {
