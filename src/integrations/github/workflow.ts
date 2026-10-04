@@ -31,6 +31,8 @@ export async function prepareGitHubWorkspace(
     revision = response.data.head.sha;
   }
 
+  if (await sandboxes.containsRevision(conversationId, revision, context)) return;
+
   const directory = await mkdtemp(join(tmpdir(), "factory-workspace-"));
   try {
     await github.repository({ installationId, repositoryId, owner, repository }).clone(directory, revision);

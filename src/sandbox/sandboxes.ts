@@ -25,6 +25,16 @@ export class Sandboxes {
     return new DockerExecutionEnv(sandbox);
   }
 
+  async containsRevision(conversationId: ConversationId, revision: string, context: Context): Promise<boolean> {
+    if (!/^[0-9a-f]{40}$/u.test(revision)) throw new Error(`Invalid Git revision: ${revision}`);
+    const result = await this.#get(conversationId).exec(
+      `git merge-base --is-ancestor ${revision} HEAD`,
+      undefined,
+      context,
+    );
+    return result.exitCode === 0;
+  }
+
   async replace(conversationId: ConversationId, directory: string, context: Context): Promise<void> {
     await this.#get(conversationId).replace(directory, context);
   }

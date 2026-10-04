@@ -1,43 +1,18 @@
 import type { Context } from "@earendil-works/chord";
-import type { Conversation, ConversationId, Extension, Harness, Submission } from "@earendil-works/pi-durable";
-import { CodingTools } from "@earendil-works/pi-durable/tools";
+import type { Conversation, ConversationId, Harness, Submission } from "@earendil-works/pi-durable";
 import type { FactoryDatabase } from "./database.ts";
 import { assignWorkflowSessionConversation, type WorkflowSession } from "./workflow-sessions.ts";
 
 export interface WorkflowEvent {
   id: string;
   prompt: string;
-  prepare?: (conversationId: ConversationId, context: Context) => Promise<void>;
-  extension?: Extension;
 }
 
-/** Durably submits an event to the workflow session's Pi conversation. */
-export async function runWorkflowEvent(
+/** Opens the one Pi conversation owned by a workflow session. */
+export async function openWorkflowConversation(
   harness: Harness,
   database: FactoryDatabase,
   session: WorkflowSession,
-  event: WorkflowEvent,
-  context: Context,
-): Promise<Submission> {
-  const conversation = await workflowConversation(harness, database, session, event.extension, context);
-  if (event.extension) await conversation.configure({ extensions: [CodingTools, event.extension] }, context);
-  await event.prepare?.(conversation.id, context);
-  return conversation.submit(
-    {
-      type: "input",
-      content: event.prompt,
-      requestId: event.id,
-      whenBusy: "steer",
-    },
-    context,
-  );
-}
-
-async function workflowConversation(
-  harness: Harness,
-  database: FactoryDatabase,
-  session: WorkflowSession,
-  extension: Extension | undefined,
   context: Context,
 ): Promise<Conversation> {
   if (session.conversationId) return requireConversation(harness, session.conversationId, context);
@@ -48,7 +23,6 @@ async function workflowConversation(
       ownership: { kind: "ownerless" },
       agent: {
         model: { provider: workflow.agent.provider, modelId: workflow.agent.model },
-        extensions: extension ? [CodingTools, extension] : [CodingTools],
         instructions: workflow.agent.instructions,
       },
     },
@@ -56,6 +30,23 @@ async function workflowConversation(
   );
   const conversationId = assignWorkflowSessionConversation(database, session.id, String(created.id));
   return conversationId === String(created.id) ? created : requireConversation(harness, conversationId, context);
+}
+
+/** Submits one deduplicated factual event after its provider has prepared the conversation. */
+export function submitWorkflowEvent(
+  conversation: Conversation,
+  event: WorkflowEvent,
+  context: Context,
+): Promise<Submission> {
+  return conversation.submit(
+    {
+      type: "input",
+      content: event.prompt,
+      requestId: event.id,
+      whenBusy: "steer",
+    },
+    context,
+  );
 }
 
 async function requireConversation(harness: Harness, value: string, context: Context): Promise<Conversation> {

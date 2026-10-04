@@ -2,13 +2,9 @@ import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Hono } from "hono";
 import type { FactoryDatabase } from "./database.ts";
 import type { Durable } from "./durable.ts";
+import { handleGitHubEvent } from "./integrations/github/handler.ts";
 import type { GitHubApp } from "./integrations/github/index.ts";
-import { getGitHubEventRoute, receiveGitHubWebhook } from "./integrations/github/webhooks.ts";
-import { prepareGitHubWorkspace } from "./integrations/github/workflow.ts";
-import { registerGitHubWorkflows } from "./workflow-registration.ts";
-import { findRegisteredWorkflows } from "./workflow-registry.ts";
-import { runWorkflowEvent } from "./workflow-runner.ts";
-import { findOrCreateWorkflowSession } from "./workflow-sessions.ts";
+import { receiveGitHubWebhook } from "./integrations/github/webhooks.ts";
 
 export type ServerOptions = {
   github: GitHubApp;
@@ -28,40 +24,7 @@ export function createServer(options: ServerOptions): Hono {
     const event = await receiveGitHubWebhook(context.req.raw, options.githubWebhookSecret);
     if (!event) return context.body(null, 204);
 
-    await registerGitHubWorkflows(options.github, options.database, event);
-
-    if ("prompt" in event) {
-      const trigger = `github.${event.name}`;
-      const matched = findRegisteredWorkflows(options.database, {
-        provider: "github",
-        repositoryId: String(event.payload.repository.id),
-        event: trigger,
-      });
-
-      console.info(`Received GitHub workflow event ${event.name} (${event.deliveryId})`);
-      const route = getGitHubEventRoute(event);
-      for (const workflow of matched) {
-        console.info(`Matched ${workflow.path} for ${trigger}`);
-        if (!route) continue;
-
-        const result = findOrCreateWorkflowSession(options.database, {
-          repositoryId: workflow.repositoryId,
-          workflowPath: workflow.path,
-          workflowRevision: workflow.revision,
-          workflowDefinition: workflow.definition,
-          origin: route,
-        });
-        console.info(`${result.created ? "Created" : "Found"} workflow session ${result.session.id}`);
-        await runWorkflowEvent(
-          options.durable.harness,
-          options.database,
-          result.session,
-          { id: `github:${event.deliveryId}`, prompt: event.prompt },
-          BACKGROUND_CONTEXT,
-        );
-      }
-    }
-
+    await handleGitHubEvent(options, event, BACKGROUND_CONTEXT);
     return context.body(null, 202);
   });
 
