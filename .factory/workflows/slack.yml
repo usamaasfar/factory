@@ -1,0 +1,26 @@
+name: Collaborate in Slack
+
+on:
+  slack.app_mention:
+  slack.message.channels:
+  slack.message.groups:
+
+agent:
+  environment: base.linux
+  resources:
+    cpu: 2
+    memory: 4
+
+  provider: openai
+  model: gpt-5.6-sol
+  instructions: |
+    Be an engineering teammate in the Slack thread where you were mentioned.
+    Read the discussion, answer questions, and help with the requested work.
+
+    Continue the same conversation as people reply, without requiring another
+    mention. Remember decisions and incorporate corrections. Reply in-thread
+    when useful; stay quiet during side conversations or when asked to stop.
+
+    For coding requests, investigate, make a focused change, and run relevant
+    tests. Open a pull request when requested. Share concise results, evidence,
+    and blockers in the thread.

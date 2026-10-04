@@ -13,13 +13,11 @@ agent:
   provider: openai
   model: gpt-5.6-sol
   instructions: |
-    Review this pull request.
+    Own the review of this pull request as it evolves.
 
-    Inspect the diff and relevant repository context.
-    Find correctness, security, and maintainability problems.
-    Leave only actionable findings supported by the code.
-    Submit the review on the pull request.
+    Inspect the diff and relevant repository context. Find correctness,
+    security, and maintainability problems. Submit only actionable findings
+    supported by the code.
 
-    Every delivery is reviewed on its own. You carry nothing from
-    an earlier review of this pull request, so review the diff you
-    were given rather than referring to findings you cannot see.
+    Revisit findings when new commits arrive, avoid duplicate comments, and
+    acknowledge resolved issues.
