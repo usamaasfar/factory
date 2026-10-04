@@ -5,6 +5,7 @@ import { GitHttpRemote, type PublishGitBundleOptions } from "../../git.ts";
 export type GitHubAppOptions = {
   appId: string;
   privateKey: string;
+  login: string;
 };
 
 export type GitHubClientOptions = {
@@ -39,14 +40,28 @@ export type GitHubDirectoryEntry = {
 
 /** Authenticates a GitHub App and creates repository-scoped clients. */
 export class GitHubApp {
+  readonly login: string;
   readonly #auth: ReturnType<typeof createAppAuth>;
+  #commitIdentity?: Promise<{ name: string; email: string }>;
 
   constructor(options: GitHubAppOptions) {
+    this.login = options.login;
     this.#auth = createAppAuth(options);
   }
 
   async client(options: GitHubClientOptions): Promise<Octokit> {
     return new Octokit({ auth: await this.#token(options) });
+  }
+
+  commitIdentity(options: GitHubClientOptions): Promise<{ name: string; email: string }> {
+    this.#commitIdentity ??= this.client(options).then(async (client) => {
+      const account = await client.rest.users.getByUsername({ username: this.login });
+      return {
+        name: this.login,
+        email: `${account.data.id}+${this.login}@users.noreply.github.com`,
+      };
+    });
+    return this.#commitIdentity;
   }
 
   repository(options: GitHubRepositoryOptions): GitHubRepository {

@@ -7,37 +7,68 @@ import type { Sandboxes } from "../../sandbox/index.ts";
 import type { GitHubApp } from "./index.ts";
 import type { GitHubEvent } from "./webhooks.ts";
 
-/** Replaces a conversation's workspace with the pull request's current head. */
-export async function prepareGitHubWorkspace(
+export interface GitHubPullRequestTarget {
+  installationId: number;
+  repositoryId: number;
+  owner: string;
+  repository: string;
+  number: number;
+  branch: string;
+  revision: string;
+  headRepositoryId: number;
+}
+
+/** Resolves the current pull request head represented by a workflow event. */
+export async function resolveGitHubPullRequestTarget(
   github: GitHubApp,
-  sandboxes: Sandboxes,
   event: GitHubEvent,
-  conversationId: ConversationId,
-  context: Context,
-): Promise<void> {
-  if (!("prompt" in event)) return;
+): Promise<GitHubPullRequestTarget> {
+  if (!("prompt" in event)) throw new Error("GitHub event does not identify a workflow pull request");
   const installationId = event.payload.installation?.id;
   if (!installationId) throw new Error("GitHub workflow event has no installation");
 
   const repositoryId = event.payload.repository.id;
   const owner = event.payload.repository.owner.login;
   const repository = event.payload.repository.name;
-  let revision: string;
-  if ("pull_request" in event.payload) {
-    revision = event.payload.pull_request.head.sha;
-  } else {
-    const client = await github.client({ installationId, repositoryId });
-    const response = await client.rest.pulls.get({ owner, repo: repository, pull_number: event.payload.issue.number });
-    revision = response.data.head.sha;
-  }
+  const pullRequest =
+    "pull_request" in event.payload
+      ? event.payload.pull_request
+      : (
+          await (
+            await github.client({ installationId, repositoryId })
+          ).rest.pulls.get({ owner, repo: repository, pull_number: event.payload.issue.number })
+        ).data;
 
-  if (await sandboxes.containsRevision(conversationId, revision, context)) return;
+  return {
+    installationId,
+    repositoryId,
+    owner,
+    repository,
+    number: pullRequest.number,
+    branch: pullRequest.head.ref,
+    revision: pullRequest.head.sha,
+    headRepositoryId: pullRequest.head.repo?.id ?? 0,
+  };
+}
+
+/** Ensures a conversation workspace contains the pull request's current head. */
+export async function prepareGitHubWorkspace(
+  github: GitHubApp,
+  sandboxes: Sandboxes,
+  event: GitHubEvent,
+  conversationId: ConversationId,
+  context: Context,
+  resolved?: GitHubPullRequestTarget,
+): Promise<GitHubPullRequestTarget> {
+  const target = resolved ?? (await resolveGitHubPullRequestTarget(github, event));
+  if (await sandboxes.containsRevision(conversationId, target.revision, context)) return target;
 
   const directory = await mkdtemp(join(tmpdir(), "factory-workspace-"));
   try {
-    await github.repository({ installationId, repositoryId, owner, repository }).clone(directory, revision);
+    await github.repository(target).clone(directory, target.revision);
     await sandboxes.replace(conversationId, directory, context);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+  return target;
 }

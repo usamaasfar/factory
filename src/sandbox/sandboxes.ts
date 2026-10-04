@@ -35,6 +35,56 @@ export class Sandboxes {
     return result.exitCode === 0;
   }
 
+  async configureGitAuthor(
+    conversationId: ConversationId,
+    identity: { name: string; email: string },
+    context: Context,
+  ): Promise<void> {
+    const result = await this.#get(conversationId).exec(
+      'git config user.name "$FACTORY_GIT_AUTHOR_NAME" && git config user.email "$FACTORY_GIT_AUTHOR_EMAIL"',
+      { env: { FACTORY_GIT_AUTHOR_NAME: identity.name, FACTORY_GIT_AUTHOR_EMAIL: identity.email } },
+      context,
+    );
+    if (result.exitCode !== 0) throw new Error(`Could not configure Git author: ${result.stderr.trim()}`);
+  }
+
+  async gitBundle(
+    conversationId: ConversationId,
+    expectedHead: string,
+    identity: { name: string; email: string },
+    context: Context,
+  ): Promise<Uint8Array> {
+    if (!/^[0-9a-f]{40}$/u.test(expectedHead)) throw new Error(`Invalid Git revision: ${expectedHead}`);
+    const sandbox = this.#get(conversationId);
+    const path = `/tmp/factory-${conversationId}.bundle`;
+    const environment = {
+      FACTORY_GIT_AUTHOR_NAME: identity.name,
+      FACTORY_GIT_AUTHOR_EMAIL: identity.email,
+      GIT_AUTHOR_NAME: identity.name,
+      GIT_AUTHOR_EMAIL: identity.email,
+      GIT_COMMITTER_NAME: identity.name,
+      GIT_COMMITTER_EMAIL: identity.email,
+    };
+    try {
+      const created = await sandbox.exec(
+        `git merge-base --is-ancestor ${expectedHead} HEAD && ` +
+          `test "$(git log -1 --format=%an%n%ae%n%cn%n%ce)" = "$FACTORY_GIT_AUTHOR_NAME
+$FACTORY_GIT_AUTHOR_EMAIL
+$FACTORY_GIT_AUTHOR_NAME
+$FACTORY_GIT_AUTHOR_EMAIL" || git commit --amend --no-edit --reset-author && ` +
+          `git bundle create ${path} HEAD ^${expectedHead}`,
+        { env: environment },
+        context,
+      );
+      if (created.exitCode !== 0) throw new Error(`Could not create Git bundle: ${created.stderr.trim()}`);
+      const encoded = await sandbox.exec(`base64 < ${path}`, undefined, context);
+      if (encoded.exitCode !== 0) throw new Error(`Could not read Git bundle: ${encoded.stderr.trim()}`);
+      return Uint8Array.fromBase64(encoded.stdout.replace(/\s/gu, ""));
+    } finally {
+      await sandbox.exec(`rm -f ${path}`, undefined, context).catch(() => undefined);
+    }
+  }
+
   async replace(conversationId: ConversationId, directory: string, context: Context): Promise<void> {
     await this.#get(conversationId).replace(directory, context);
   }

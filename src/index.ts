@@ -15,6 +15,7 @@ const database = openDatabase(databasePath);
 const github = new GitHubApp({
   appId: required("GITHUB_APP_ID"),
   privateKey: required("GITHUB_PRIVATE_KEY"),
+  login: required("GITHUB_APP_LOGIN"),
 });
 
 const models = createModels();

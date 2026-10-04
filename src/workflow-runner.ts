@@ -1,5 +1,6 @@
 import type { Context } from "@earendil-works/chord";
-import type { Conversation, ConversationId, Harness, Submission } from "@earendil-works/pi-durable";
+import type { Conversation, ConversationId, Extension, Harness, Submission } from "@earendil-works/pi-durable";
+import { CodingTools } from "@earendil-works/pi-durable/tools";
 import type { FactoryDatabase } from "./database.ts";
 import { assignWorkflowSessionConversation, type WorkflowSession } from "./workflow-sessions.ts";
 
@@ -13,9 +14,14 @@ export async function openWorkflowConversation(
   harness: Harness,
   database: FactoryDatabase,
   session: WorkflowSession,
+  extension: Extension,
   context: Context,
 ): Promise<Conversation> {
-  if (session.conversationId) return requireConversation(harness, session.conversationId, context);
+  if (session.conversationId) {
+    const conversation = await requireConversation(harness, session.conversationId, context);
+    await conversation.configure({ extensions: [CodingTools, extension] }, context);
+    return conversation;
+  }
 
   const workflow = session.workflowDefinition;
   const created = await harness.createConversation(
@@ -23,6 +29,7 @@ export async function openWorkflowConversation(
       ownership: { kind: "ownerless" },
       agent: {
         model: { provider: workflow.agent.provider, modelId: workflow.agent.model },
+        extensions: [CodingTools, extension],
         instructions: workflow.agent.instructions,
       },
     },
