@@ -4,9 +4,9 @@ Factory is a workflow engineering platform for automating repeatable software wo
 
 Workflows and their execution environments are defined in `.factory/`.
 
-## Workflow DSL
+## Workflows
 
-Factory has a declarative YAML workflow DSL. A workflow selects the events that activate a long-lived agent and defines its trusted environment, resources, model, and instructions.
+Factory workflows are defined in YAML files under `.factory/workflows/`. Each workflow selects the events that activate a long-lived agent and defines its trusted environment, resources, model, and instructions.
 
 ```yaml
 name: Review pull requests
@@ -29,7 +29,7 @@ agent:
     findings supported by the code.
 ```
 
-Workflow files live under `.factory/workflows/`. Factory registers them only from the repository's default branch, so pull requests cannot change the instructions governing their own execution. The initial DSL is intentionally small; permissions, schedules, trigger filters, tools, and delegated agents will be added only when Factory enforces their semantics.
+Factory registers workflow files only from the repository's default branch, so pull requests cannot change the instructions governing their own execution. The initial workflow syntax is intentionally small; permissions, schedules, trigger filters, tools, and delegated agents will be added only when Factory enforces their semantics.
 
 ## Development
 
