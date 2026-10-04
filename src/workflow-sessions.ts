@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { FactoryDatabase } from "./database.ts";
 import { workflowSessionRoutes, workflowSessions } from "./database-schema.ts";
 import type { Workflow } from "./workflows.ts";
@@ -69,6 +69,30 @@ export function findOrCreateWorkflowSession(
 
     return { session, created: Boolean(inserted) };
   });
+}
+
+/** Attaches the first Pi conversation created for a workflow session. */
+export function assignWorkflowSessionConversation(
+  database: FactoryDatabase,
+  sessionId: string,
+  conversationId: string,
+): string {
+  const assigned = database
+    .update(workflowSessions)
+    .set({ conversationId })
+    .where(and(eq(workflowSessions.id, sessionId), isNull(workflowSessions.conversationId)))
+    .returning({ conversationId: workflowSessions.conversationId })
+    .get();
+  if (assigned?.conversationId) return assigned.conversationId;
+
+  const existing = database
+    .select({ conversationId: workflowSessions.conversationId })
+    .from(workflowSessions)
+    .where(eq(workflowSessions.id, sessionId))
+    .get();
+  if (!existing) throw new Error(`Workflow session does not exist: ${sessionId}`);
+  if (!existing.conversationId) throw new Error(`Workflow session has no conversation: ${sessionId}`);
+  return existing.conversationId;
 }
 
 /** Adds another provider address, such as a Slack thread, to an existing session. */

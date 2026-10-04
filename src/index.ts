@@ -1,6 +1,10 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
+import { createModels } from "@earendil-works/pi-ai/models";
+import { deepseekProvider } from "@earendil-works/pi-ai/providers/deepseek";
 import { openDatabase } from "./database.ts";
+import { openDurable } from "./durable.ts";
 import { GitHubApp } from "./integrations/github/index.ts";
 import { createServer } from "./server.ts";
 
@@ -12,9 +16,18 @@ const github = new GitHubApp({
   privateKey: required("GITHUB_PRIVATE_KEY"),
 });
 
+const models = createModels();
+models.setProvider(deepseekProvider());
+const harness = await openDurable(
+  Bun.env.PI_DATABASE_PATH ?? ".factory/state/pi.sqlite",
+  { models, image: Bun.env.SANDBOX_IMAGE ?? "debian:bookworm-slim" },
+  BACKGROUND_CONTEXT,
+);
+
 const app = createServer({
   github,
   database: openDatabase(databasePath),
+  harness,
   githubWebhookSecret: required("GITHUB_WEBHOOK_SECRET"),
 });
 
