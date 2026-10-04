@@ -219,11 +219,9 @@ export class DockerExecutionEnv implements ExecutionEnv {
 }
 
 function isSandboxInterrupted(error: unknown): error is Error & { reason: "aborted" | "timeout" } {
-  return (
-    error instanceof Error &&
-    error.name === "SandboxInterrupted" &&
-    (error.reason === "aborted" || error.reason === "timeout")
-  );
+  if (!(error instanceof Error) || error.name !== "SandboxInterrupted") return false;
+  const reason = (error as Error & { reason?: unknown }).reason;
+  return reason === "aborted" || reason === "timeout";
 }
 
 function resolveWorkspacePath(cwd: string, path: string): string {
