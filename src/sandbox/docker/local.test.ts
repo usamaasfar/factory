@@ -137,21 +137,31 @@ describe("local Docker Pi execution environment", () => {
   );
 
   dockerTest(
-    "preserves its namespace until the provider destroys it",
+    "suspends compute while preserving its namespace",
     async () => {
       const key = sandboxKey();
       const env: ExecutionEnv = await provider.open(key, BACKGROUND_CONTEXT);
+      const identity = env.id.replace("docker:local:", "");
       getOrThrow(await env.writeFile("state.txt", "persistent", BACKGROUND_CONTEXT));
 
-      const reopened: ExecutionEnv = await new LocalDockerSandboxProvider({ image: IMAGE }).open(
+      await provider.suspend(key, BACKGROUND_CONTEXT);
+      await provider.suspend(key, BACKGROUND_CONTEXT);
+      expect(docker("container", "ls", "--all", "--quiet", "--filter", `label=com.factory.sandbox=${identity}`)).toBe(
+        "",
+      );
+      expect(docker("volume", "ls", "--quiet", "--filter", `label=com.factory.sandbox=${identity}`)).not.toBe("");
+
+      const resumed: ExecutionEnv = await new LocalDockerSandboxProvider({ image: IMAGE }).open(
         key,
         BACKGROUND_CONTEXT,
       );
-      expect(reopened.id).toBe(env.id);
-      expect(getOrThrow(await reopened.readTextFile("state.txt", BACKGROUND_CONTEXT))).toBe("persistent");
+      expect(resumed.id).toBe(env.id);
+      expect(getOrThrow(await resumed.readTextFile("state.txt", BACKGROUND_CONTEXT))).toBe("persistent");
 
       await provider.destroy(key, BACKGROUND_CONTEXT);
       await provider.destroy(key, BACKGROUND_CONTEXT);
+      expect(docker("volume", "ls", "--quiet", "--filter", `label=com.factory.sandbox=${identity}`)).toBe("");
+
       const replacement = await provider.open(key, BACKGROUND_CONTEXT);
       expect(getOrThrow(await replacement.exists("state.txt", BACKGROUND_CONTEXT))).toBeFalse();
     },
@@ -214,4 +224,10 @@ function hasDockerImage(image: string): boolean {
   } catch {
     return false;
   }
+}
+
+function docker(...args: string[]): string {
+  const result = Bun.spawnSync(["docker", ...args]);
+  if (result.exitCode !== 0) throw new Error(result.stderr.toString().trim() || `docker ${args[0]} failed`);
+  return result.stdout.toString().trim();
 }
