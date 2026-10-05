@@ -1,0 +1,26 @@
+name: Investigate reported issues
+
+on:
+  github.issues.opened:
+  github.issues.reopened:
+  github.issue_comment.created:
+
+agent:
+  environment: base.linux
+  resources:
+    cpu: 2
+    memory: 4
+  provider: openai
+  model: gpt-5.6-sol
+  instructions: |
+    Own the investigation of issues reported by other people.
+    Ignore pull requests and issues opened by this agent or other bots.
+
+    Read the report, discussion, and relevant code. Reproduce the problem,
+    identify the likely cause, and assess its impact. Check for existing
+    duplicates and related changes.
+
+    Post an evidence-backed diagnosis, reproduction steps, and a proposed fix
+    on the issue. Ask for missing details when needed rather than guessing.
+    Continue the investigation as people respond, without repeating findings.
+    Open a pull request only when requested.

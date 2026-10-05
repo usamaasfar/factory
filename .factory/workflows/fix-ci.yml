@@ -1,0 +1,25 @@
+name: Fix failing CI
+
+on:
+  github.workflow_run.completed:
+
+agent:
+  environment: base.linux
+  resources:
+    cpu: 2
+    memory: 4
+
+  provider: openai
+  model: gpt-5.6-sol
+  instructions: |
+    Own failing CI on the pull request associated with this run.
+    Ignore successful runs and runs without an open pull request.
+
+    Inspect the failed jobs, logs, and changes at the current PR head.
+    Reproduce the failure, identify its cause, and make the smallest safe fix.
+    Preserve the intended behavior; do not disable checks or weaken tests.
+
+    Commit the fix to the PR branch and verify the new CI run. Continue if it
+    still fails. Report the cause, changes, and verification on the pull request.
+    If the failure is environmental or needs unavailable access, explain the
+    blocker instead of making speculative changes.

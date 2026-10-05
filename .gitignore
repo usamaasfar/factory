@@ -33,14 +33,14 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # Finder (MacOS) folder config
 .DS_Store
 
-# Factory runtime state
-.factory/state
+# Temporary files
+temp
 
 # Agents
 .memory
 .agents
 .pi
 skills-lock.json
+AGENTS.md
 
-src/deps
 drizzle
