@@ -13,8 +13,10 @@ import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import type { SandboxProvider } from "../sandbox/provider.ts";
 import type { WorkspaceRecord, WorkspaceState, WorkspaceStore } from "./store.ts";
 
-const DEFAULT_IDLE_TIMEOUT = 5 * 60 * 1_000;
-const DEFAULT_RETENTION = 7 * 24 * 60 * 60 * 1_000;
+const DEFAULT_IDLE_TIMEOUT = 5 * 60 * 1_000; // 5 minutes
+const DEFAULT_OPERATION_TIMEOUT = 30 * 60 * 1_000; // 30 minutes
+const DEFAULT_RETENTION = 7 * 24 * 60 * 60 * 1_000; // 7 days
+const SWEEP_LIMIT = 100; // maximum number of records to sweep
 
 export type WorkspaceInitializer = (env: ExecutionEnv, context: Context) => Promise<void>;
 
@@ -22,6 +24,7 @@ export interface WorkspaceLifecycleOptions {
   provider: SandboxProvider;
   store: WorkspaceStore;
   idleTimeoutMs?: number;
+  operationTimeoutMs?: number;
   retentionMs?: number;
   now?: () => Date;
 }
@@ -31,6 +34,7 @@ export class WorkspaceLifecycle {
   readonly #provider: SandboxProvider;
   readonly #store: WorkspaceStore;
   readonly #idleTimeoutMs: number;
+  readonly #operationTimeoutMs: number;
   readonly #retentionMs: number;
   readonly #now: () => Date;
 
@@ -38,6 +42,7 @@ export class WorkspaceLifecycle {
     this.#provider = options.provider;
     this.#store = options.store;
     this.#idleTimeoutMs = duration(options.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT, "idle timeout");
+    this.#operationTimeoutMs = duration(options.operationTimeoutMs ?? DEFAULT_OPERATION_TIMEOUT, "operation timeout");
     this.#retentionMs = duration(options.retentionMs ?? DEFAULT_RETENTION, "retention");
     this.#now = options.now ?? (() => new Date());
   }
@@ -49,6 +54,7 @@ export class WorkspaceLifecycle {
     const record: WorkspaceRecord = {
       id,
       state: "initializing",
+      stateChangedAt: createdAt,
       createdAt,
       lastActiveAt: createdAt,
       suspendAt: after(createdAt, this.#idleTimeoutMs),
@@ -60,7 +66,7 @@ export class WorkspaceLifecycle {
     try {
       const env = await this.#provider.open(id, context);
       await initialize(env, context);
-      const active = this.#active(record, this.#time());
+      const active = this.#activate(record, this.#time());
       if (!(await this.#store.replace(active, record.version, context))) {
         throw new Error(`Workspace changed during initialization: ${id}`);
       }
@@ -80,7 +86,7 @@ export class WorkspaceLifecycle {
 
     try {
       const env = await this.#provider.open(id, context);
-      const active = this.#active(claimed, this.#time());
+      const active = this.#activate(claimed, this.#time());
       if (!(await this.#store.replace(active, claimed.version, context))) {
         throw new Error(`Workspace changed while resuming: ${id}`);
       }
@@ -97,7 +103,7 @@ export class WorkspaceLifecycle {
     const record = await this.#required(id, context);
     if (record.state !== "active") throw unavailable(record);
 
-    const active = this.#active(record, this.#time());
+    const active = this.#refresh(record, this.#time());
     if (!(await this.#store.replace(active, record.version, context))) {
       throw new Error(`Workspace changed while recording activity: ${id}`);
     }
@@ -109,19 +115,7 @@ export class WorkspaceLifecycle {
     const record = await this.#store.get(id, context);
     if (!record || record.state === "suspended") return;
     if (record.state !== "active" && record.state !== "suspending") throw unavailable(record);
-
-    const claimed = record.state === "suspending" ? record : await this.#transition(record, "suspending", context);
-    await this.#provider.suspend(id, context);
-
-    const suspended: WorkspaceRecord = {
-      ...claimed,
-      state: "suspended",
-      version: claimed.version + 1,
-    };
-    if (!(await this.#store.replace(suspended, claimed.version, context))) {
-      const current = await this.#store.get(id, context);
-      if (current?.state !== "suspended") throw new Error(`Workspace changed while suspending: ${id}`);
-    }
+    if (!(await this.#suspend(record, false, context))) throw new Error(`Workspace changed while suspending: ${id}`);
   }
 
   /** Permanently removes compute, storage, and the lifecycle record. */
@@ -132,12 +126,29 @@ export class WorkspaceLifecycle {
       await this.#provider.destroy(id, context);
       return;
     }
+    if (!(await this.#destroy(record, context))) throw new Error(`Workspace changed while destroying: ${id}`);
+  }
 
-    const claimed = record.state === "destroying" ? record : await this.#transition(record, "destroying", context);
-    await this.#provider.destroy(id, context);
-    if (!(await this.#store.delete(id, claimed.version, context)) && (await this.#store.get(id, context))) {
-      throw new Error(`Workspace changed while destroying: ${id}`);
+  /** Suspends idle compute, destroys expired storage, and recovers abandoned transitions. */
+  async sweep(context: Context): Promise<void> {
+    const now = this.#time();
+    const staleBefore = after(now, -this.#operationTimeoutMs);
+    const records = await this.#store.findDue(now, staleBefore, SWEEP_LIMIT, context);
+    const errors: unknown[] = [];
+
+    for (const record of records) {
+      try {
+        if (record.expiresAt <= now || record.state === "initializing" || record.state === "destroying") {
+          await this.#destroy(record, context);
+        } else if (record.state === "active" || record.state === "suspending" || record.state === "resuming") {
+          await this.#suspend(record, true, context);
+        }
+      } catch (error) {
+        errors.push(error);
+      }
     }
+
+    if (errors.length > 0) throw new AggregateError(errors, "Workspace sweep failed");
   }
 
   async #required(id: string, context: Context): Promise<WorkspaceRecord> {
@@ -148,18 +159,60 @@ export class WorkspaceLifecycle {
 
   /** Claims a provider operation with an atomic version change. */
   async #transition(record: WorkspaceRecord, state: WorkspaceState, context: Context): Promise<WorkspaceRecord> {
-    const next = { ...record, state, version: record.version + 1 };
-    if (!(await this.#store.replace(next, record.version, context))) {
-      throw new Error(`Workspace changed concurrently: ${record.id}`);
-    }
+    const next = await this.#tryTransition(record, state, context);
+    if (!next) throw new Error(`Workspace changed concurrently: ${record.id}`);
     return next;
   }
 
-  #active(record: WorkspaceRecord, now: Date): WorkspaceRecord {
+  async #tryTransition(
+    record: WorkspaceRecord,
+    state: WorkspaceState,
+    context: Context,
+  ): Promise<WorkspaceRecord | undefined> {
+    const next = { ...record, state, stateChangedAt: this.#time(), version: record.version + 1 };
+    return (await this.#store.replace(next, record.version, context)) ? next : undefined;
+  }
+
+  async #suspend(record: WorkspaceRecord, recoverResuming: boolean, context: Context): Promise<boolean> {
+    if (record.state === "suspended") return true;
+    if (record.state === "resuming" && !recoverResuming) return false;
+    if (record.state !== "active" && record.state !== "resuming" && record.state !== "suspending") return false;
+
+    const claimed = record.state === "suspending" ? record : await this.#tryTransition(record, "suspending", context);
+    if (!claimed) return false;
+
+    await this.#provider.suspend(record.id, context);
+    const suspended: WorkspaceRecord = {
+      ...claimed,
+      state: "suspended",
+      stateChangedAt: this.#time(),
+      version: claimed.version + 1,
+    };
+    if (await this.#store.replace(suspended, claimed.version, context)) return true;
+    return (await this.#store.get(record.id, context))?.state === "suspended";
+  }
+
+  async #destroy(record: WorkspaceRecord, context: Context): Promise<boolean> {
+    const claimed = record.state === "destroying" ? record : await this.#tryTransition(record, "destroying", context);
+    if (!claimed) return false;
+
+    await this.#provider.destroy(record.id, context);
+    if (await this.#store.delete(record.id, claimed.version, context)) return true;
+    return (await this.#store.get(record.id, context)) === undefined;
+  }
+
+  #activate(record: WorkspaceRecord, now: Date): WorkspaceRecord {
+    return {
+      ...this.#refresh(record, now),
+      state: "active",
+      stateChangedAt: now,
+      initializedAt: record.initializedAt ?? now,
+    };
+  }
+
+  #refresh(record: WorkspaceRecord, now: Date): WorkspaceRecord {
     return {
       ...record,
-      state: "active",
-      initializedAt: record.initializedAt ?? now,
       lastActiveAt: now,
       suspendAt: after(now, this.#idleTimeoutMs),
       expiresAt: after(now, this.#retentionMs),
@@ -188,6 +241,7 @@ export class WorkspaceLifecycle {
       const suspended: WorkspaceRecord = {
         ...record,
         state: "suspended",
+        stateChangedAt: this.#time(),
         version: record.version + 1,
       };
       await this.#store.replace(suspended, record.version, cleanupContext);

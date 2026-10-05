@@ -9,6 +9,7 @@ export type WorkspaceState = "initializing" | "active" | "resuming" | "suspendin
 export interface WorkspaceRecord {
   readonly id: string;
   readonly state: WorkspaceState;
+  readonly stateChangedAt: Date;
   readonly createdAt: Date;
   readonly initializedAt?: Date;
   readonly lastActiveAt: Date;
@@ -26,4 +27,9 @@ export interface WorkspaceStore {
   replace(record: WorkspaceRecord, expectedVersion: number, context: Context): Promise<boolean>;
   /** Removes a record only when its current version equals `expectedVersion`. */
   delete(id: string, expectedVersion: number, context: Context): Promise<boolean>;
+  /**
+   * Finds records whose storage expired, active compute became idle, or
+   * transitional state was last changed on or before `staleBefore`.
+   */
+  findDue(now: Date, staleBefore: Date, limit: number, context: Context): Promise<WorkspaceRecord[]>;
 }

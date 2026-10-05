@@ -7,6 +7,7 @@ import { WorkspaceLifecycle } from "./lifecycle.ts";
 import type { WorkspaceRecord, WorkspaceStore } from "./store.ts";
 
 const IDLE_TIMEOUT = 5 * 60 * 1_000;
+const OPERATION_TIMEOUT = 30 * 60 * 1_000;
 const RETENTION = 7 * 24 * 60 * 60 * 1_000;
 
 describe("WorkspaceLifecycle", () => {
@@ -28,6 +29,7 @@ describe("WorkspaceLifecycle", () => {
     expect(fixture.provider.hasStorage("workflow-1")).toBeTrue();
     expect(fixture.store.record("workflow-1")).toMatchObject({
       state: "active",
+      stateChangedAt: fixture.now(),
       createdAt: fixture.now(),
       initializedAt: fixture.now(),
       lastActiveAt: fixture.now(),
@@ -121,6 +123,50 @@ describe("WorkspaceLifecycle", () => {
     expect(fixture.provider.hasStorage("workflow-1")).toBeTrue();
   });
 
+  test("sweeps idle compute and expired storage", async () => {
+    const fixture = workspaceFixture();
+    await fixture.lifecycle.create("workflow-1", async () => {}, BACKGROUND_CONTEXT);
+
+    await fixture.lifecycle.sweep(BACKGROUND_CONTEXT);
+    expect(fixture.store.required("workflow-1").state).toBe("active");
+
+    fixture.advance(IDLE_TIMEOUT);
+    await fixture.lifecycle.sweep(BACKGROUND_CONTEXT);
+    expect(fixture.store.required("workflow-1").state).toBe("suspended");
+    expect(fixture.provider.hasCompute("workflow-1")).toBeFalse();
+    expect(fixture.provider.hasStorage("workflow-1")).toBeTrue();
+
+    fixture.advance(RETENTION - IDLE_TIMEOUT);
+    await fixture.lifecycle.sweep(BACKGROUND_CONTEXT);
+    expect(fixture.store.record("workflow-1")).toBeUndefined();
+    expect(fixture.provider.hasStorage("workflow-1")).toBeFalse();
+  });
+
+  test("recovers an abandoned resume by suspending its compute", async () => {
+    const fixture = workspaceFixture();
+    await fixture.lifecycle.create("workflow-1", async () => {}, BACKGROUND_CONTEXT);
+    await fixture.lifecycle.suspend("workflow-1", BACKGROUND_CONTEXT);
+
+    const suspended = fixture.store.required("workflow-1");
+    await fixture.store.replace(
+      {
+        ...suspended,
+        state: "resuming",
+        stateChangedAt: fixture.now(),
+        version: suspended.version + 1,
+      },
+      suspended.version,
+      BACKGROUND_CONTEXT,
+    );
+    await fixture.provider.open("workflow-1", BACKGROUND_CONTEXT);
+
+    fixture.advance(OPERATION_TIMEOUT);
+    await fixture.lifecycle.sweep(BACKGROUND_CONTEXT);
+    expect(fixture.store.required("workflow-1").state).toBe("suspended");
+    expect(fixture.provider.hasCompute("workflow-1")).toBeFalse();
+    expect(fixture.provider.hasStorage("workflow-1")).toBeTrue();
+  });
+
   test("permanently destroys compute, storage, and lifecycle state", async () => {
     const fixture = workspaceFixture();
     await fixture.lifecycle.create("workflow-1", async () => {}, BACKGROUND_CONTEXT);
@@ -151,6 +197,7 @@ function workspaceFixture() {
       provider,
       store,
       idleTimeoutMs: IDLE_TIMEOUT,
+      operationTimeoutMs: OPERATION_TIMEOUT,
       retentionMs: RETENTION,
       now,
     }),
@@ -181,6 +228,17 @@ class InMemoryWorkspaceStore implements WorkspaceStore {
     const current = this.#records.get(id);
     if (!current || current.version !== expectedVersion) return false;
     return this.#records.delete(id);
+  }
+
+  async findDue(now: Date, staleBefore: Date, limit: number, _context: Context): Promise<WorkspaceRecord[]> {
+    return [...this.#records.values()]
+      .filter(
+        (record) =>
+          record.expiresAt <= now ||
+          (record.state === "active" && record.suspendAt <= now) ||
+          (isTransition(record.state) && record.stateChangedAt <= staleBefore),
+      )
+      .slice(0, limit);
   }
 
   record(id: string): WorkspaceRecord | undefined {
@@ -233,4 +291,8 @@ class FakeSandboxProvider implements SandboxProvider {
 
 function after(date: Date, milliseconds: number): Date {
   return new Date(date.getTime() + milliseconds);
+}
+
+function isTransition(state: WorkspaceRecord["state"]): boolean {
+  return state === "initializing" || state === "resuming" || state === "suspending" || state === "destroying";
 }
