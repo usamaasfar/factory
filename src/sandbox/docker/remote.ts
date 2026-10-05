@@ -1,22 +1,15 @@
 /**
- * Remote Docker Sandboxes provider plan.
+ * Placeholder for Docker-managed cloud sandboxes.
  *
- * This provider will use the experimental `@docker/sandboxes` TypeScript SDK,
- * not the `sbx --cloud` CLI. It will create or reconnect to Docker-managed
- * cloud sandboxes, wait until they are running, refresh endpoints after
- * restarts, adapt interactive processes to `SandboxCommandRunner`, and delete
- * sandboxes through `SandboxProvider.destroy()`.
+ * The remote provider will implement `SandboxProvider` with the experimental
+ * `@docker/sandboxes` SDK, not the `sbx --cloud` CLI. It will own cloud
+ * lifecycle, persist Factory key-to-resource ID mappings, manage expiration,
+ * and adapt the SDK's interactive process API to `SandboxCommandRunner`.
  *
- * Factory must persist the mapping from its stable sandbox key to Docker's
- * assigned cloud resource name. Command execution must preserve cwd,
- * environment, stdin, ordered stdout and stderr streaming, exit codes, and
- * cancellation. Cancellation must stop the remote process before the runner
- * settles.
- *
- * Expiration is part of lifecycle management: the provider must configure or
- * renew the sandbox lifetime so an active Factory conversation is not removed
- * by Docker's default timeout. It will return `FactorySandbox`; Pi filesystem
- * and shell semantics remain in the shared adapter.
+ * The runner must preserve cwd, environment, stdin, ordered output, exit codes,
+ * and cancellation; cancellation must stop the remote process before settling.
+ * It will return `FactorySandbox`, which remains responsible for Pi filesystem
+ * and shell semantics.
  */
 
 export {};

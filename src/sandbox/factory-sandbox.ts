@@ -5,8 +5,7 @@
  * This class supplies Pi's shell and filesystem semantics.
  *
  * This implementation targets the installed `@earendil-works/pi-durable`
- * release. Re-audit it against Pi's `ExecutionEnv` whenever that dependency is
- * updated; Pi's unreleased `main` interface may differ.
+ * release. Re-audit it against Pi's `ExecutionEnv` whenever that dependency is updated.
  */
 
 import { posix } from "node:path";
