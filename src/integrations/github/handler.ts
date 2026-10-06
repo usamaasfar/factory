@@ -1,13 +1,14 @@
 import type { Context } from "@earendil-works/chord";
 import { withoutAbortSignal } from "@earendil-works/chord/context";
 import type { Conversation, Submission } from "@earendil-works/pi-durable";
+import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import type { FactoryDatabase } from "../../database.ts";
 import type { Durable } from "../../durable.ts";
 import { registerGitHubWorkflows } from "../../workflow-registration.ts";
 import { findRegisteredWorkflows } from "../../workflow-registry.ts";
 import { openWorkflowConversation, submitWorkflowEvent } from "../../workflow-runner.ts";
 import { findOrCreateWorkflowSession } from "../../workflow-sessions.ts";
-import type { WorkspaceLifecycle } from "../../workspace/index.ts";
+import { exportCodingWorkspaceChanges, type WorkspaceLifecycle } from "../../workspace/index.ts";
 import type { GitHubApp } from "./index.ts";
 import { createGitHubTools } from "./tools/index.ts";
 import { type GitHubEvent, getGitHubEventRoute } from "./webhooks.ts";
@@ -68,7 +69,18 @@ export async function handleGitHubEvent(
 
     // Each session gets a stable extension identity so concurrent workflows
     // cannot replace one another's authenticated GitHub client in the registry.
-    const extension = createGitHubTools(client, { name: `github-${session.id}` });
+    const publish =
+      target.headRepositoryId === target.repositoryId
+        ? async (env: ExecutionEnv, publishContext: Context) => {
+            const bundle = await exportCodingWorkspaceChanges(env, target.revision, publishContext);
+            return options.github.repository(target).publishBundle({
+              branch: target.branch,
+              expectedHead: target.revision,
+              bundle,
+            });
+          }
+        : undefined;
+    const extension = createGitHubTools(client, { name: `github-${session.id}`, publish });
     options.durable.install(extension);
     const cleanupContext = withoutAbortSignal(context);
 

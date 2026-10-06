@@ -39,6 +39,7 @@ and agent execution are separate concerns.
 - `store.ts` defines durable records and the atomic store contract.
 - `sqlite-store.ts` persists that contract through the application database.
 - `initialize.ts` archives and installs a prepared coding repository.
+- `publish.ts` exports clean commits as a credential-free Git bundle.
 - `lifecycle.ts` implements workspace state transitions and maintenance.
 - `lifecycle.test.ts` tests public behavior with a stateful fake provider,
   in-memory store, and deterministic clock.
@@ -93,6 +94,11 @@ perform agent work.
 Linked worktrees and submodules are currently rejected rather than risking an
 incomplete transfer or recursively copying ignored submodule files.
 
+`exportCodingWorkspaceChanges()` rejects uncommitted files, empty publications,
+and histories that do not descend from the expected pull-request head. It
+exports commit objects as a Git bundle; only the trusted host receives GitHub
+credentials and pushes the validated fast-forward update.
+
 The baseline image is defined by `docker/coding.Dockerfile` and built with:
 
 ```sh
@@ -120,13 +126,12 @@ be idempotent because recovery may repeat them after a crash.
 ## Scheduling
 
 `sweep()` contains the maintenance behavior and is independent of its trigger.
-A later phase can call it at startup and periodically with `Bun.cron()`. Do not
-create one timer per workspace.
+Startup sweeping is enabled; a later phase can also call it periodically with
+`Bun.cron()`. Do not create one timer per workspace.
 
 ## Next phases
 
 1. Add a thin periodic `Bun.cron()` trigger around `sweep()`; startup sweeping
    is already enabled.
 2. Import updated pull-request revisions without discarding workspace changes.
-3. Export committed changes for credential-free trusted-host publication.
-4. Define language-specific tooling policy for production coding images.
+3. Define language-specific tooling policy for production coding images.

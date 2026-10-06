@@ -8,6 +8,7 @@ import { openDatabase } from "../database.ts";
 import { LocalDockerSandboxProvider } from "../sandbox/docker/local.ts";
 import { initializeCodingWorkspace, prepareCodingWorkspace } from "./initialize.ts";
 import { WorkspaceLifecycle } from "./lifecycle.ts";
+import { exportCodingWorkspaceChanges } from "./publish.ts";
 import { SqliteWorkspaceStore } from "./sqlite-store.ts";
 
 const IMAGE = process.env.FACTORY_CODING_TEST_IMAGE ?? "factory-coding:test";
@@ -61,6 +62,11 @@ describe("Docker coding workspace", () => {
       expect(initializations).toBe(1);
       expect(getOrThrow(await resumed.readTextFile("README.md", BACKGROUND_CONTEXT))).toBe("agent state\n");
       expect(await git(resumed, "rev-parse HEAD")).toBe(prepared.head);
+      await git(resumed, "add README.md");
+      await git(resumed, "commit -m 'Update README'");
+      expect((await exportCodingWorkspaceChanges(resumed, prepared.head, BACKGROUND_CONTEXT)).length).toBeGreaterThan(
+        0,
+      );
 
       await lifecycle.destroy(key, BACKGROUND_CONTEXT);
       workspaceKeys.delete(key);

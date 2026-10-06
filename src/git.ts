@@ -55,7 +55,9 @@ export class GitHttpRemote {
       if (proposedHead === options.expectedHead) throw new Error("The bundle contains no new commits");
 
       // Require a fast-forward relationship; the following push deliberately does not force.
-      await runGit(["-C", directory, "merge-base", "--is-ancestor", options.expectedHead, proposedHead]);
+      if (!(await isAncestor(directory, options.expectedHead, proposedHead))) {
+        throw new Error("The bundle does not fast-forward the remote branch");
+      }
       await runGit(
         ["-C", directory, "push", "origin", `${proposedHead}:refs/heads/${options.branch}`],
         this.#environment,
@@ -72,6 +74,17 @@ async function runGit(args: string[], env: Record<string, string | undefined> = 
   const child = Bun.spawn(["git", ...args], { env, stdout: "ignore", stderr: "pipe" });
   const stderr = await new Response(child.stderr).text();
   if ((await child.exited) !== 0) throw new Error(`git ${args[0]} failed: ${stderr.trim()}`);
+}
+
+async function isAncestor(directory: string, ancestor: string, descendant: string): Promise<boolean> {
+  const child = Bun.spawn(["git", "-C", directory, "merge-base", "--is-ancestor", ancestor, descendant], {
+    stdout: "ignore",
+    stderr: "pipe",
+  });
+  const [stderr, exitCode] = await Promise.all([new Response(child.stderr).text(), child.exited]);
+  if (exitCode === 0) return true;
+  if (exitCode === 1) return false;
+  throw new Error(`git merge-base failed: ${stderr.trim()}`);
 }
 
 async function gitOutput(args: string[]): Promise<string> {
