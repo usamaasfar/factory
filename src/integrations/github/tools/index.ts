@@ -2,26 +2,34 @@ import { defineExtension } from "@earendil-works/pi-durable";
 import type { GitHubClient } from "../index.ts";
 import { createActionTools } from "./actions.ts";
 import { createCheckTools } from "./checks.ts";
+import { createFetchBranchTool, type FetchBranch } from "./fetch-branch.ts";
 import { createIssueTools } from "./issues.ts";
-import { createPublishChangesTool, type PublishChanges } from "./publish.ts";
 import { createPullTools } from "./pulls.ts";
+import { createPushBranchTool, type PushBranch } from "./push-branch.ts";
 import { createReactionTools } from "./reactions.ts";
 import { createSearchTools } from "./search.ts";
 import { createUserTools } from "./users.ts";
 
-/** Creates the Pi extension for an authenticated GitHub installation. */
-export function createGitHubTools(github: GitHubClient, publish?: PublishChanges) {
+export type GitHubToolsOptions = {
+  name?: string;
+  fetchBranch?: FetchBranch;
+  pushBranch?: PushBranch;
+};
+
+/** Creates a Pi extension for one authenticated GitHub workflow scope. */
+export function createGitHubTools(github: GitHubClient, options: GitHubToolsOptions = {}) {
   return defineExtension({
-    name: "github",
+    name: options.name ?? "github",
     tools: [
       ...createActionTools(github),
       ...createCheckTools(github),
+      ...(options.fetchBranch ? [createFetchBranchTool(options.fetchBranch)] : []),
       ...createIssueTools(github),
       ...createPullTools(github),
       ...createReactionTools(github),
       ...createSearchTools(github),
       ...createUserTools(github),
-      ...(publish ? [createPublishChangesTool(publish)] : []),
+      ...(options.pushBranch ? [createPushBranchTool(options.pushBranch)] : []),
     ],
   });
 }

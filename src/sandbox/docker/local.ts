@@ -112,16 +112,21 @@ export class LocalDockerSandboxProvider implements SandboxProvider {
     });
   }
 
-  async destroy(key: string, context: Context): Promise<void> {
+  async suspend(key: string, context: Context): Promise<void> {
     const resource = resourceFor(key);
     const container = await inspectContainer(resource.container, context);
     if (container && container.Config?.Labels?.[LABEL] !== resource.identity) {
       throw new Error(`Docker container name is already in use: ${resource.container}`);
     }
-    if (container) {
-      const removed = await docker(["rm", "--force", resource.container], context);
-      if (removed.exitCode !== 0 && !isMissing(removed.stderr)) throw dockerFailure("remove sandbox", removed);
-    }
+    if (!container) return;
+
+    const removed = await docker(["rm", "--force", resource.container], context);
+    if (removed.exitCode !== 0 && !isMissing(removed.stderr)) throw dockerFailure("suspend sandbox", removed);
+  }
+
+  async destroy(key: string, context: Context): Promise<void> {
+    const resource = resourceFor(key);
+    await this.suspend(key, context);
 
     const volume = await inspectVolume(resource.volume, context);
     if (volume && volume.Labels?.[LABEL] !== resource.identity) {

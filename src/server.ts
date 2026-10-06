@@ -5,11 +5,13 @@ import type { Durable } from "./durable.ts";
 import { handleGitHubEvent } from "./integrations/github/handler.ts";
 import type { GitHubApp } from "./integrations/github/index.ts";
 import { receiveGitHubWebhook } from "./integrations/github/webhooks.ts";
+import type { WorkspaceLifecycle } from "./workspace/index.ts";
 
 export type ServerOptions = {
   github: GitHubApp;
   database: FactoryDatabase;
   durable: Durable;
+  workspaces: WorkspaceLifecycle;
   githubWebhookSecret: string;
 };
 

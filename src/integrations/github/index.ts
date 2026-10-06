@@ -1,6 +1,11 @@
 import { createAppAuth } from "@octokit/auth-app";
 import { Octokit } from "@octokit/rest";
-import { GitHttpRemote, type PublishGitBundleOptions } from "../../git.ts";
+import {
+  type FetchedGitBundle,
+  type FetchGitBundleOptions,
+  GitHttpRemote,
+  type PublishGitBundleOptions,
+} from "../../git.ts";
 
 export type GitHubAppOptions = {
   appId: string;
@@ -156,6 +161,10 @@ export class GitHubRepository {
 
   async clone(directory: string, revision: string): Promise<void> {
     await (await this.#remote()).clone(directory, revision);
+  }
+
+  async fetchBundle(options: FetchGitBundleOptions): Promise<FetchedGitBundle> {
+    return (await this.#remote()).fetchBundle(options);
   }
 
   async publishBundle(options: PublishGitBundleOptions): Promise<string> {
