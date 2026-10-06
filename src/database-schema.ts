@@ -1,5 +1,6 @@
 import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import type { Workflow } from "./workflows.ts";
+import type { WorkspaceState } from "./workspace/store.ts";
 
 export const repositories = sqliteTable(
   "repositories",
@@ -52,6 +53,26 @@ export const workflowSessions = sqliteTable(
       table.originProvider,
       table.originSubject,
     ),
+  ],
+);
+
+export const workspaces = sqliteTable(
+  "workspaces",
+  {
+    id: text().primaryKey(),
+    state: text().$type<WorkspaceState>().notNull(),
+    stateChangedAt: integer("state_changed_at", { mode: "timestamp_ms" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+    initializedAt: integer("initialized_at", { mode: "timestamp_ms" }),
+    lastActiveAt: integer("last_active_at", { mode: "timestamp_ms" }).notNull(),
+    suspendAt: integer("suspend_at", { mode: "timestamp_ms" }).notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    version: integer().notNull(),
+  },
+  (table) => [
+    index("workspaces_expires_at").on(table.expiresAt),
+    index("workspaces_state_suspend_at").on(table.state, table.suspendAt),
+    index("workspaces_state_changed_at").on(table.state, table.stateChangedAt),
   ],
 );
 

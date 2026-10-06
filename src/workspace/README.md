@@ -37,9 +37,12 @@ and agent execution are separate concerns.
 ## Files
 
 - `store.ts` defines durable records and the atomic store contract.
+- `sqlite-store.ts` persists that contract through the application database.
 - `lifecycle.ts` implements workspace state transitions and maintenance.
 - `lifecycle.test.ts` tests public behavior with a stateful fake provider,
   in-memory store, and deterministic clock.
+- `sqlite-store.test.ts` verifies the store against real in-memory SQLite.
+- `database-schema.ts` contains the `workspaces` table with the other schemas.
 - `index.ts` exports the public API.
 
 ## Lifecycle
@@ -86,14 +89,12 @@ create one timer per workspace.
 
 ## Next phases
 
-1. Implement a persistent `WorkspaceStore` and workspace table independently of
-   the existing application schema.
-2. Add a thin startup/cron reaper around `sweep()`.
-3. Implement coding-workspace initialization:
+1. Add a thin startup/cron reaper around `sweep()`.
+2. Implement coding-workspace initialization:
    - run trusted environment preparation;
    - transfer the prepared repository;
    - preserve Git state and remotes;
    - configure repository-local GitHub App identity;
    - verify the repository is clean and usable.
-4. Integrate with Pi Durable only after workspace lifecycle and initialization
+3. Integrate with Pi Durable only after workspace lifecycle and initialization
    are complete.
