@@ -38,9 +38,12 @@ and agent execution are separate concerns.
 
 - `store.ts` defines durable records and the atomic store contract.
 - `sqlite-store.ts` persists that contract through the application database.
+- `initialize.ts` archives and installs a prepared coding repository.
 - `lifecycle.ts` implements workspace state transitions and maintenance.
 - `lifecycle.test.ts` tests public behavior with a stateful fake provider,
   in-memory store, and deterministic clock.
+- `initialize.test.ts` verifies transfer, identity, credential exclusion, and
+  destination safety through Pi's local execution environment.
 - `sqlite-store.test.ts` verifies the store against real in-memory SQLite.
 - `database-schema.ts` contains the `workspaces` table with the other schemas.
 - `index.ts` exports the public API.
@@ -68,6 +71,24 @@ Default policy:
 The operation timeout is separate from idle timeout so a legitimate provider or
 initialization operation is not considered abandoned after five minutes.
 
+## Coding workspace initialization
+
+`prepareCodingWorkspace()` accepts a clean repository root with a normal local
+`.git` directory and `origin`. It records `HEAD`, symbolic-ref state, and all
+remote output, then archives only `.git` and tracked files. Ignored files are
+excluded because they commonly contain credentials, dependencies, and caches.
+Repository-local credential helpers, HTTP authorization headers, and embedded
+HTTP(S) credentials are rejected.
+
+`initializeCodingWorkspace()` requires an empty destination, extracts the
+archive without preserving host ownership, verifies Git state and remotes,
+configures repository-local GitHub App identity, and confirms that the resulting
+worktree is clean. It does not fetch, choose a branch, install dependencies, or
+perform agent work.
+
+Linked worktrees and submodules are currently rejected rather than risking an
+incomplete transfer or recursively copying ignored submodule files.
+
 ## Persistence
 
 `WorkspaceStore` uses optimistic versions for atomic state transitions. A store
@@ -89,12 +110,8 @@ create one timer per workspace.
 
 ## Next phases
 
-1. Add a thin startup/cron reaper around `sweep()`.
-2. Implement coding-workspace initialization:
-   - run trusted environment preparation;
-   - transfer the prepared repository;
-   - preserve Git state and remotes;
-   - configure repository-local GitHub App identity;
-   - verify the repository is clean and usable.
+1. Add a coding image containing Git, GNU tar, certificates, and the required
+   language tools, then run initialization against real Docker storage.
+2. Add a thin startup/cron reaper around `sweep()`.
 3. Integrate with Pi Durable only after workspace lifecycle and initialization
    are complete.
