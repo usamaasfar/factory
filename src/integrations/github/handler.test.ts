@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import { isGitHubAppSender, suspendWorkspaceAfterSubmission } from "./handler.ts";
+import { suspendWorkspaceAfterSubmission } from "../../workflow/runtime.ts";
+import { isGitHubAppSender } from "./handler.ts";
 
 test("GitHub App events are distinguished from the human account with the same base login", () => {
   expect(isGitHubAppSender("usamaasfar[bot]", "usamaasfar")).toBeTrue();

@@ -1,8 +1,7 @@
-import type { FactoryDatabase } from "./database.ts";
-import type { GitHubApp, GitHubDirectoryEntry, GitHubRepository } from "./integrations/github/index.ts";
-import { type GitHubEvent, githubWorkflowEventNames } from "./integrations/github/webhooks.ts";
-import { replaceRegisteredWorkflows } from "./workflow-registry.ts";
-import { parseWorkflow } from "./workflows.ts";
+import type { Context } from "@earendil-works/chord";
+import { parseWorkflowDefinition, type WorkflowStore } from "../../workflow/index.ts";
+import type { GitHubApp, GitHubDirectoryEntry, GitHubRepository } from "./index.ts";
+import { type GitHubEvent, githubWorkflowEventNames } from "./webhooks.ts";
 
 const workflowDirectory = ".factory/workflows";
 const supportedEvents = new Set<string>(githubWorkflowEventNames);
@@ -17,8 +16,9 @@ type RepositoryTarget = {
 /** Synchronizes workflow registrations affected by one verified GitHub event. */
 export async function registerGitHubWorkflows(
   app: GitHubApp,
-  database: FactoryDatabase,
+  store: WorkflowStore,
   event: GitHubEvent,
+  context: Context,
 ): Promise<void> {
   if (event.name === "push") {
     const payload = event.payload;
@@ -29,19 +29,23 @@ export async function registerGitHubWorkflows(
       return;
     }
 
-    const target = {
-      installationId: payload.installation.id,
-      repositoryId: payload.repository.id,
-      owner: payload.repository.owner.login,
-      repository: payload.repository.name,
-    };
-    await synchronizeRepository(app, database, target, payload.after);
+    await synchronizeRepository(
+      app,
+      store,
+      {
+        installationId: payload.installation.id,
+        repositoryId: payload.repository.id,
+        owner: payload.repository.owner.login,
+        repository: payload.repository.name,
+      },
+      context,
+      payload.after,
+    );
     return;
   }
 
   if (event.name !== "installation.created" && event.name !== "installation_repositories.added") return;
 
-  // Installation events bootstrap repositories before their next default-branch push.
   const repositories =
     event.name === "installation.created" ? event.payload.repositories : event.payload.repositories_added;
   if (!repositories) {
@@ -50,30 +54,38 @@ export async function registerGitHubWorkflows(
   }
 
   for (const repository of repositories) {
+    context.abortSignal?.throwIfAborted();
     const [owner, name] = repository.full_name.split("/");
     if (!owner || !name) {
       console.error(`Cannot register workflows for invalid repository name: ${repository.full_name}`);
       continue;
     }
-    await synchronizeRepository(app, database, {
-      installationId: event.payload.installation.id,
-      repositoryId: repository.id,
-      owner,
-      repository: name,
-    });
+    await synchronizeRepository(
+      app,
+      store,
+      {
+        installationId: event.payload.installation.id,
+        repositoryId: repository.id,
+        owner,
+        repository: name,
+      },
+      context,
+    );
   }
 }
 
-/** Builds and validates a complete repository snapshot before changing the registry. */
+/** Builds and validates a complete repository snapshot before changing the store. */
 async function synchronizeRepository(
   app: GitHubApp,
-  database: FactoryDatabase,
+  store: WorkflowStore,
   target: RepositoryTarget,
+  context: Context,
   expectedHead?: string,
 ): Promise<void> {
   const fullName = `${target.owner}/${target.repository}`;
 
   try {
+    context.abortSignal?.throwIfAborted();
     const repository = app.repository(target);
     const branch = await repository.defaultBranch();
 
@@ -84,12 +96,10 @@ async function synchronizeRepository(
     }
 
     const entries = await listWorkflowFiles(repository, branch.sha);
-
-    // Promise.all must finish successfully before the atomic database replacement begins.
     const registered = await Promise.all(
       entries.map(async ({ path }) => {
         const source = await repository.readFile(path, branch.sha);
-        const definition = parseWorkflow(source);
+        const definition = parseWorkflowDefinition(source);
         for (const event of Object.keys(definition.on)) {
           if (!supportedEvents.has(event)) throw new Error(`${path} uses unsupported event ${event}`);
         }
@@ -97,20 +107,17 @@ async function synchronizeRepository(
       }),
     );
 
-    replaceRegisteredWorkflows(database, {
-      repository: {
-        provider: "github",
-        providerId: String(target.repositoryId),
-        installationId: String(target.installationId),
-        owner: target.owner,
-        name: target.repository,
-        defaultBranch: branch.name,
+    await store.replaceSnapshot(
+      {
+        repository: { provider: "github", providerId: String(target.repositoryId) },
+        revision: branch.sha,
+        workflows: registered,
       },
-      revision: branch.sha,
-      workflows: registered,
-    });
+      context,
+    );
     console.info(`Registered ${registered.length} workflow(s) for ${fullName} at ${branch.sha}`);
   } catch (error) {
+    if (context.abortSignal?.aborted) throw error;
     console.error(`Failed to register workflows for ${fullName}: ${message(error)}`);
   }
 }
@@ -121,7 +128,6 @@ async function listWorkflowFiles(repository: GitHubRepository, revision: string)
     const entries = await repository.listDirectory(workflowDirectory, revision);
     return entries.filter((entry) => entry.type === "file" && entry.name.endsWith(".yml")).sort(byPath);
   } catch (error) {
-    // A repository without a workflow directory has a valid empty snapshot.
     if (status(error) === 404) return [];
     throw error;
   }
@@ -131,7 +137,6 @@ function byPath(left: GitHubDirectoryEntry, right: GitHubDirectoryEntry): number
   return left.path.localeCompare(right.path);
 }
 
-/** Reads Octokit's HTTP status without coupling core registration to its error class. */
 function status(error: unknown): number | undefined {
   if (typeof error !== "object" || error === null || !("status" in error)) return undefined;
   return typeof error.status === "number" ? error.status : undefined;

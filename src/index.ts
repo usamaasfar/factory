@@ -6,7 +6,7 @@ import { openDurable } from "./durable.ts";
 import { GitHubApp } from "./integrations/github/index.ts";
 import { LocalDockerSandboxProvider } from "./sandbox/index.ts";
 import { createServer } from "./server.ts";
-import { findWorkflowSessionByConversationId } from "./workflow-sessions.ts";
+import { SqliteWorkflowStore, WorkflowRuntime } from "./workflow/index.ts";
 import { SqliteWorkspaceStore, WorkspaceLifecycle } from "./workspace/index.ts";
 
 const database = openDatabase(required("FACTORY_DATABASE_PATH"));
@@ -23,6 +23,7 @@ const workspaces = new WorkspaceLifecycle({
   provider: new LocalDockerSandboxProvider({ image: Bun.env.SANDBOX_IMAGE ?? "factory-coding:test" }),
   store: new SqliteWorkspaceStore(database),
 });
+const workflowStore = new SqliteWorkflowStore(database);
 await workspaces.sweep(BACKGROUND_CONTEXT);
 
 const durable = await openDurable(
@@ -30,7 +31,7 @@ const durable = await openDurable(
   {
     models,
     environment: async (conversationId, context) => {
-      const session = findWorkflowSessionByConversationId(database, conversationId);
+      const session = await workflowStore.findSessionByConversation(conversationId, context);
       if (!session) throw new Error(`No workflow session owns Pi conversation ${conversationId}`);
       return workspaces.open(session.id, context);
     },
@@ -38,10 +39,11 @@ const durable = await openDurable(
   BACKGROUND_CONTEXT,
 );
 
+const workflowRuntime = new WorkflowRuntime({ store: workflowStore, durable, workspaces });
 const app = createServer({
   github,
-  database,
-  durable,
+  workflowStore,
+  workflowRuntime,
   workspaces,
   githubWebhookSecret: required("GITHUB_WEBHOOK_SECRET"),
 });

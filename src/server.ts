@@ -1,16 +1,15 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { Hono } from "hono";
-import type { FactoryDatabase } from "./database.ts";
-import type { Durable } from "./durable.ts";
 import { handleGitHubEvent } from "./integrations/github/handler.ts";
 import type { GitHubApp } from "./integrations/github/index.ts";
 import { receiveGitHubWebhook } from "./integrations/github/webhooks.ts";
+import type { WorkflowRuntime, WorkflowStore } from "./workflow/index.ts";
 import type { WorkspaceLifecycle } from "./workspace/index.ts";
 
 export type ServerOptions = {
   github: GitHubApp;
-  database: FactoryDatabase;
-  durable: Durable;
+  workflowStore: WorkflowStore;
+  workflowRuntime: WorkflowRuntime;
   workspaces: WorkspaceLifecycle;
   githubWebhookSecret: string;
 };
