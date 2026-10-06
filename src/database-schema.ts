@@ -53,6 +53,7 @@ export const workflowSessions = sqliteTable(
       table.originProvider,
       table.originSubject,
     ),
+    uniqueIndex("workflow_sessions_conversation_id").on(table.conversationId),
   ],
 );
 

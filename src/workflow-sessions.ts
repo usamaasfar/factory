@@ -95,6 +95,14 @@ export function assignWorkflowSessionConversation(
   return existing.conversationId;
 }
 
+/** Finds the workflow session that owns a Pi conversation. */
+export function findWorkflowSessionByConversationId(
+  database: FactoryDatabase,
+  conversationId: string,
+): WorkflowSession | undefined {
+  return database.select().from(workflowSessions).where(eq(workflowSessions.conversationId, conversationId)).get();
+}
+
 /** Adds another provider address, such as a Slack thread, to an existing session. */
 export function addWorkflowSessionRoute(
   database: FactoryDatabase,

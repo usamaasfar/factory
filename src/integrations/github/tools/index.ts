@@ -9,10 +9,15 @@ import { createReactionTools } from "./reactions.ts";
 import { createSearchTools } from "./search.ts";
 import { createUserTools } from "./users.ts";
 
-/** Creates the Pi extension for an authenticated GitHub installation. */
-export function createGitHubTools(github: GitHubClient, publish?: PublishChanges) {
+export type GitHubToolsOptions = {
+  name?: string;
+  publish?: PublishChanges;
+};
+
+/** Creates a Pi extension for one authenticated GitHub workflow scope. */
+export function createGitHubTools(github: GitHubClient, options: GitHubToolsOptions = {}) {
   return defineExtension({
-    name: "github",
+    name: options.name ?? "github",
     tools: [
       ...createActionTools(github),
       ...createCheckTools(github),
@@ -21,7 +26,7 @@ export function createGitHubTools(github: GitHubClient, publish?: PublishChanges
       ...createReactionTools(github),
       ...createSearchTools(github),
       ...createUserTools(github),
-      ...(publish ? [createPublishChangesTool(publish)] : []),
+      ...(options.publish ? [createPublishChangesTool(options.publish)] : []),
     ],
   });
 }

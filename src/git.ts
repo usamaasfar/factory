@@ -31,7 +31,6 @@ export class GitHttpRemote {
   async clone(directory: string, revision: string): Promise<void> {
     await runGit(["clone", this.#url, directory], this.#environment);
     await runGit(["-C", directory, "checkout", "--detach", revision], this.#environment);
-    await runGit(["-C", directory, "remote", "remove", "origin"]);
   }
 
   async publishBundle(options: PublishGitBundleOptions): Promise<string> {

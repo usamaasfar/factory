@@ -54,6 +54,8 @@ and agent execution are separate concerns.
 
 `WorkspaceLifecycle` provides:
 
+- `ensure()` — initializes a missing workspace, leaves an initialized workspace
+  unchanged, and permits retry after failed initialization cleanup.
 - `create()` — claims a new ID, opens resources, runs an initializer once, and
   marks the workspace active. Failed initialization removes partial resources.
 - `open()` — resumes initialized storage and refreshes activity deadlines.
@@ -123,7 +125,8 @@ create one timer per workspace.
 
 ## Next phases
 
-1. Add a thin startup/cron reaper around `sweep()`.
-2. Replace the stale application sandbox wiring with workspace lifecycle.
-3. Integrate the initialized workspace environment with Pi Durable.
+1. Add a thin periodic `Bun.cron()` trigger around `sweep()`; startup sweeping
+   is already enabled.
+2. Import updated pull-request revisions without discarding workspace changes.
+3. Export committed changes for credential-free trusted-host publication.
 4. Define language-specific tooling policy for production coding images.

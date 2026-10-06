@@ -2,8 +2,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Context } from "@earendil-works/chord";
-import type { ConversationId } from "@earendil-works/pi-durable";
-import type { Sandboxes } from "../../sandbox/index.ts";
+import type { WorkspaceLifecycle } from "../../workspace/index.ts";
+import { type GitIdentity, initializeCodingWorkspace, prepareCodingWorkspace } from "../../workspace/index.ts";
 import type { GitHubApp } from "./index.ts";
 import type { GitHubEvent } from "./webhooks.ts";
 
@@ -51,24 +51,27 @@ export async function resolveGitHubPullRequestTarget(
   };
 }
 
-/** Ensures a conversation workspace contains the pull request's current head. */
+/** Creates and initializes the persistent workspace for a new pull-request session. */
 export async function prepareGitHubWorkspace(
   github: GitHubApp,
-  sandboxes: Sandboxes,
-  event: GitHubEvent,
-  conversationId: ConversationId,
+  workspaces: WorkspaceLifecycle,
+  workspaceId: string,
+  identity: GitIdentity,
+  target: GitHubPullRequestTarget,
   context: Context,
-  resolved?: GitHubPullRequestTarget,
-): Promise<GitHubPullRequestTarget> {
-  const target = resolved ?? (await resolveGitHubPullRequestTarget(github, event));
-  if (await sandboxes.containsRevision(conversationId, target.revision, context)) return target;
-
-  const directory = await mkdtemp(join(tmpdir(), "factory-workspace-"));
-  try {
-    await github.repository(target).clone(directory, target.revision);
-    await sandboxes.replace(conversationId, directory, context);
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-  return target;
+): Promise<void> {
+  await workspaces.ensure(
+    workspaceId,
+    async (env, initializeContext) => {
+      const directory = await mkdtemp(join(tmpdir(), "factory-workspace-"));
+      try {
+        await github.repository(target).clone(directory, target.revision);
+        const prepared = await prepareCodingWorkspace(directory, initializeContext);
+        await initializeCodingWorkspace(env, prepared, identity, initializeContext);
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    },
+    context,
+  );
 }

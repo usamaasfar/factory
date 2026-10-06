@@ -47,6 +47,31 @@ export class WorkspaceLifecycle {
     this.#now = options.now ?? (() => new Date());
   }
 
+  /** Ensures a workspace has completed initialization without rerunning its initializer. */
+  async ensure(id: string, initialize: WorkspaceInitializer, context: Context): Promise<void> {
+    validateId(id);
+    const existing = await this.#store.get(id, context);
+    if (existing) {
+      if (existing.state === "active" || existing.state === "suspended") return;
+      throw unavailable(existing);
+    }
+
+    try {
+      await this.create(id, initialize, context);
+    } catch (error) {
+      // Cancellation must remain observable even if another caller completes
+      // initialization while this operation is unwinding.
+      if (context.abortSignal?.aborted) throw error;
+
+      // Another caller may have won the create claim and completed before we
+      // observed the conflict. Transitional state remains unavailable so its
+      // caller can retry after the in-flight initialization settles.
+      const raced = await this.#store.get(id, context);
+      if (raced?.state === "active" || raced?.state === "suspended") return;
+      throw error;
+    }
+  }
+
   /** Creates fresh resources, initializes them once, and marks the workspace active. */
   async create(id: string, initialize: WorkspaceInitializer, context: Context): Promise<ExecutionEnv> {
     validateId(id);

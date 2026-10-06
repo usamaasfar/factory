@@ -4,9 +4,12 @@ import { deepseekProvider } from "@earendil-works/pi-ai/providers/deepseek";
 import { openDatabase } from "./database.ts";
 import { openDurable } from "./durable.ts";
 import { GitHubApp } from "./integrations/github/index.ts";
+import { LocalDockerSandboxProvider } from "./sandbox/index.ts";
 import { createServer } from "./server.ts";
+import { findWorkflowSessionByConversationId } from "./workflow-sessions.ts";
+import { SqliteWorkspaceStore, WorkspaceLifecycle } from "./workspace/index.ts";
 
-const database = openDatabase(required(Bun.env.FACTORY_DATABASE_PATH as string));
+const database = openDatabase(required("FACTORY_DATABASE_PATH"));
 const github = new GitHubApp({
   appId: required("GITHUB_APP_ID"),
   privateKey: required("GITHUB_PRIVATE_KEY"),
@@ -15,9 +18,23 @@ const github = new GitHubApp({
 
 const models = createModels();
 models.setProvider(deepseekProvider());
+
+const workspaces = new WorkspaceLifecycle({
+  provider: new LocalDockerSandboxProvider({ image: Bun.env.SANDBOX_IMAGE ?? "factory-coding:test" }),
+  store: new SqliteWorkspaceStore(database),
+});
+await workspaces.sweep(BACKGROUND_CONTEXT);
+
 const durable = await openDurable(
-  required(Bun.env.PI_DATABASE_PATH as string),
-  { models, image: Bun.env.SANDBOX_IMAGE ?? "debian:bookworm-slim" },
+  required("PI_DATABASE_PATH"),
+  {
+    models,
+    environment: async (conversationId, context) => {
+      const session = findWorkflowSessionByConversationId(database, conversationId);
+      if (!session) throw new Error(`No workflow session owns Pi conversation ${conversationId}`);
+      return workspaces.open(session.id, context);
+    },
+  },
   BACKGROUND_CONTEXT,
 );
 
@@ -25,6 +42,7 @@ const app = createServer({
   github,
   database,
   durable,
+  workspaces,
   githubWebhookSecret: required("GITHUB_WEBHOOK_SECRET"),
 });
 

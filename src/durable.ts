@@ -3,28 +3,26 @@ import { dirname } from "node:path";
 import type { Context } from "@earendil-works/chord";
 import type { Models } from "@earendil-works/pi-ai/models";
 import { createRegistry, type Extension, Harness } from "@earendil-works/pi-durable";
+import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { openNodeSqliteStorage } from "@earendil-works/pi-durable/storage/sqlite/node";
 import { CodingTools } from "@earendil-works/pi-durable/tools";
-import { Sandboxes } from "./sandbox/index.ts";
 
 export interface DurableOptions {
   models: Models;
-  image: string;
+  environment(conversationId: string, context: Context): Promise<ExecutionEnv>;
 }
 
 export interface Durable {
   harness: Harness;
-  sandboxes: Sandboxes;
   install(extension: Extension): void;
 }
 
-/** Opens Factory's Pi Durable harness with one sandbox per conversation. */
+/** Opens Factory's Pi Durable harness using application-owned execution environments. */
 export async function openDurable(databasePath: string, options: DurableOptions, context: Context): Promise<Durable> {
   await mkdir(dirname(databasePath), { recursive: true });
 
   const storage = await openNodeSqliteStorage(databasePath);
   const registry = createRegistry();
-  const sandboxes = new Sandboxes({ image: options.image });
   registry.install(CodingTools);
 
   try {
@@ -33,12 +31,12 @@ export async function openDurable(databasePath: string, options: DurableOptions,
       {
         models: options.models,
         registry,
-        env: (target, envContext) => sandboxes.open(target.conversationId, envContext),
+        env: (target, envContext) => options.environment(String(target.conversationId), envContext),
       },
       context,
     );
     harness.resume();
-    return { harness, sandboxes, install: (extension) => registry.install(extension) };
+    return { harness, install: (extension) => registry.install(extension) };
   } catch (error) {
     await storage.close(context);
     throw error;

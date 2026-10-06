@@ -49,6 +49,25 @@ describe("WorkspaceLifecycle", () => {
     expect(initializations).toBe(1);
   });
 
+  test("ensures initialization once and retries after a failed attempt", async () => {
+    const fixture = workspaceFixture();
+    let attempts = 0;
+    const initialize = async () => {
+      attempts += 1;
+      if (attempts === 1) throw new Error("invalid checkout");
+    };
+
+    expect(fixture.lifecycle.ensure("workflow-1", initialize, BACKGROUND_CONTEXT)).rejects.toThrow("invalid checkout");
+    await fixture.lifecycle.ensure("workflow-1", initialize, BACKGROUND_CONTEXT);
+    await fixture.lifecycle.ensure("workflow-1", initialize, BACKGROUND_CONTEXT);
+    await fixture.lifecycle.suspend("workflow-1", BACKGROUND_CONTEXT);
+    await fixture.lifecycle.ensure("workflow-1", initialize, BACKGROUND_CONTEXT);
+
+    expect(attempts).toBe(2);
+    expect(fixture.store.required("workflow-1").state).toBe("suspended");
+    expect(fixture.provider.hasStorage("workflow-1")).toBeTrue();
+  });
+
   test("releases compute and resumes the same persistent workspace", async () => {
     const fixture = workspaceFixture();
     let initializations = 0;
