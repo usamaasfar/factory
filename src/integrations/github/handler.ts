@@ -8,7 +8,13 @@ import { registerGitHubWorkflows } from "../../workflow-registration.ts";
 import { findRegisteredWorkflows } from "../../workflow-registry.ts";
 import { openWorkflowConversation, submitWorkflowEvent } from "../../workflow-runner.ts";
 import { findOrCreateWorkflowSession } from "../../workflow-sessions.ts";
-import { exportCodingWorkspaceChanges, type WorkspaceLifecycle } from "../../workspace/index.ts";
+import {
+  exportCodingWorkspaceChanges,
+  findRemoteBranchHead,
+  importCodingWorkspaceChanges,
+  updateRemoteBranchHead,
+  type WorkspaceLifecycle,
+} from "../../workspace/index.ts";
 import type { GitHubApp } from "./index.ts";
 import { createGitHubTools } from "./tools/index.ts";
 import { type GitHubEvent, getGitHubEventRoute } from "./webhooks.ts";
@@ -69,18 +75,27 @@ export async function handleGitHubEvent(
 
     // Each session gets a stable extension identity so concurrent workflows
     // cannot replace one another's authenticated GitHub client in the registry.
-    const publish =
-      target.headRepositoryId === target.repositoryId
-        ? async (env: ExecutionEnv, publishContext: Context) => {
-            const bundle = await exportCodingWorkspaceChanges(env, target.revision, publishContext);
-            return options.github.repository(target).publishBundle({
-              branch: target.branch,
-              expectedHead: target.revision,
-              bundle,
-            });
-          }
-        : undefined;
-    const extension = createGitHubTools(client, { name: `github-${session.id}`, publish });
+    const repository = options.github.repository(target);
+    const fetchBranch = async (env: ExecutionEnv, branch: string, fetchContext: Context) => {
+      const knownHead = await findRemoteBranchHead(env, branch, fetchContext);
+      const fetched = await repository.fetchBundle({ branch, ...(knownHead ? { exclude: knownHead } : {}) });
+      if (fetched.bundle.length > 0) {
+        await importCodingWorkspaceChanges(env, { branch, head: fetched.head, bundle: fetched.bundle }, fetchContext);
+      }
+      return fetched.head;
+    };
+    const pushBranch = async (env: ExecutionEnv, branch: string, pushContext: Context) => {
+      const expectedHead = await findRemoteBranchHead(env, branch, pushContext);
+      const bundle = await exportCodingWorkspaceChanges(env, expectedHead, pushContext);
+      const head = await repository.publishBundle({ branch, ...(expectedHead ? { expectedHead } : {}), bundle });
+      await updateRemoteBranchHead(env, branch, head, withoutAbortSignal(pushContext));
+      return head;
+    };
+    const extension = createGitHubTools(client, {
+      name: `github-${session.id}`,
+      fetchBranch,
+      pushBranch,
+    });
     options.durable.install(extension);
     const cleanupContext = withoutAbortSignal(context);
 

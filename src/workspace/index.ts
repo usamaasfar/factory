@@ -8,3 +8,4 @@ export { type WorkspaceInitializer, WorkspaceLifecycle, type WorkspaceLifecycleO
 export { exportCodingWorkspaceChanges } from "./publish.ts";
 export { SqliteWorkspaceStore } from "./sqlite-store.ts";
 export type { WorkspaceRecord, WorkspaceState, WorkspaceStore } from "./store.ts";
+export { findRemoteBranchHead, importCodingWorkspaceChanges, updateRemoteBranchHead } from "./update.ts";

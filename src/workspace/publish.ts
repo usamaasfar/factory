@@ -3,13 +3,13 @@ import { withoutAbortSignal } from "@earendil-works/chord/context";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { getOrThrow } from "@earendil-works/pi-durable/env";
 
-/** Exports clean, committed changes descending from the expected repository head. */
+/** Exports clean commits, optionally requiring them to descend from an expected head. */
 export async function exportCodingWorkspaceChanges(
   env: ExecutionEnv,
-  expectedHead: string,
+  expectedHead: string | undefined,
   context: Context,
 ): Promise<Uint8Array> {
-  const base = commitId(expectedHead);
+  const base = expectedHead ? commitId(expectedHead) : undefined;
   const status = await gitOutput(env, "status --porcelain=v1 --untracked-files=all", context);
   if (status) throw new Error("Workspace has uncommitted changes");
 
@@ -20,13 +20,17 @@ export async function exportCodingWorkspaceChanges(
   try {
     const result = getOrThrow(
       await env.exec(
-        'git merge-base --is-ancestor "$FACTORY_EXPECTED_HEAD" HEAD || exit 64\n' +
-          'git bundle create "$FACTORY_BUNDLE" HEAD "^$FACTORY_EXPECTED_HEAD"',
-        { env: { FACTORY_EXPECTED_HEAD: base, FACTORY_BUNDLE: path } },
+        base
+          ? 'git merge-base --is-ancestor "$FACTORY_EXPECTED_HEAD" HEAD || exit 64\n' +
+              'git bundle create "$FACTORY_BUNDLE" HEAD "^$FACTORY_EXPECTED_HEAD"'
+          : 'git bundle create "$FACTORY_BUNDLE" HEAD',
+        { env: { ...(base ? { FACTORY_EXPECTED_HEAD: base } : {}), FACTORY_BUNDLE: path } },
         context,
       ),
     );
-    if (result.exitCode === 64) throw new Error("Workspace commits do not fast-forward the expected pull request head");
+    if (base && result.exitCode === 64) {
+      throw new Error("Workspace commits do not fast-forward the expected branch head");
+    }
     if (result.exitCode !== 0) throw new Error(`Could not create workspace Git bundle (exit ${result.exitCode})`);
 
     const bundle = getOrThrow(await env.readBinaryFile(path, context));

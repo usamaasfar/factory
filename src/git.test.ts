@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { NodeExecutionEnv } from "@earendil-works/pi-durable/env/node";
 import { GitHttpRemote } from "./git.ts";
 import { exportCodingWorkspaceChanges } from "./workspace/publish.ts";
+import { findRemoteBranchHead, importCodingWorkspaceChanges } from "./workspace/update.ts";
 
 const directories = new Set<string>();
 
@@ -14,7 +15,52 @@ afterEach(async () => {
   directories.clear();
 });
 
-describe("GitHttpRemote publication", () => {
+describe("GitHttpRemote", () => {
+  test("imports remote commits without changing the checkout", async () => {
+    const fixture = await remoteRepository();
+    const workspace = await clone(fixture.remote);
+    const env = new NodeExecutionEnv({ cwd: workspace });
+    await writeFile(join(workspace, "README.md"), "local work\n");
+    await commitFile(fixture.seed, "remote.txt", "remote\n");
+    await run(fixture.seed, "git", "push", "origin", "main");
+    const remoteHead = await git(fixture.seed, "rev-parse", "HEAD");
+
+    const knownHead = await findRemoteBranchHead(env, "main", BACKGROUND_CONTEXT);
+    const fetched = await trustedRemote(fixture.remote).fetchBundle({
+      branch: "main",
+      ...(knownHead ? { exclude: knownHead } : {}),
+    });
+    await importCodingWorkspaceChanges(
+      env,
+      { branch: "main", head: fetched.head, bundle: fetched.bundle },
+      BACKGROUND_CONTEXT,
+    );
+
+    expect(await git(workspace, "rev-parse", "HEAD")).toBe(fixture.head);
+    expect(await git(workspace, "rev-parse", "refs/remotes/origin/main")).toBe(remoteHead);
+    expect(await git(workspace, "show", "origin/main:remote.txt")).toBe("remote");
+    expect(await readFile(join(workspace, "README.md"), "utf8")).toBe("local work\n");
+    expect(await git(workspace, "status", "--porcelain=v1", "--untracked-files=all")).toBe("M README.md");
+  });
+
+  test("creates a new branch from a validated bundle", async () => {
+    const fixture = await remoteRepository();
+    const workspace = await clone(fixture.remote);
+    await run(workspace, "git", "checkout", "-b", "agent-work");
+    await commitFile(workspace, "change.txt", "published\n");
+    const head = await git(workspace, "rev-parse", "HEAD");
+    const bundle = await exportCodingWorkspaceChanges(
+      new NodeExecutionEnv({ cwd: workspace }),
+      undefined,
+      BACKGROUND_CONTEXT,
+    );
+
+    const published = await trustedRemote(fixture.remote).publishBundle({ branch: "agent-work", bundle });
+
+    expect(published).toBe(head);
+    expect(await git(fixture.remote, "rev-parse", "refs/heads/agent-work")).toBe(head);
+  });
+
   test("pushes a validated fast-forward bundle", async () => {
     const fixture = await remoteRepository();
     const workspace = await clone(fixture.remote);
@@ -39,6 +85,19 @@ describe("GitHttpRemote publication", () => {
     expect(
       await runWithExitCodes(fixture.remote, ["git", "config", "--local", "--get", "http.extraHeader"], [0, 1]),
     ).toBe("");
+  });
+
+  test("does not create a branch that already exists", async () => {
+    const fixture = await remoteRepository();
+    const path = join(fixture.seed, "main.bundle");
+    await run(fixture.seed, "git", "bundle", "create", path, "HEAD");
+
+    expect(
+      trustedRemote(fixture.remote).publishBundle({
+        branch: "main",
+        bundle: await Bun.file(path).bytes(),
+      }),
+    ).rejects.toThrow("already exists");
   });
 
   test("rejects a stale remote head", async () => {
