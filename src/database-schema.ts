@@ -1,5 +1,5 @@
 import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
-import type { Workflow } from "./workflows.ts";
+import type { WorkflowDefinition } from "./workflow/index.ts";
 import type { WorkspaceState } from "./workspace/store.ts";
 
 export const repositories = sqliteTable(
@@ -8,11 +8,6 @@ export const repositories = sqliteTable(
     id: integer().primaryKey({ autoIncrement: true }),
     provider: text().notNull(),
     providerId: text("provider_id").notNull(),
-    installationId: text("installation_id").notNull(),
-    owner: text().notNull(),
-    name: text().notNull(),
-    defaultBranch: text("default_branch").notNull(),
-    workflowRevision: text("workflow_revision").notNull(),
   },
   (table) => [uniqueIndex("repositories_provider_id").on(table.provider, table.providerId)],
 );
@@ -27,7 +22,7 @@ export const workflows = sqliteTable(
     revision: text().notNull(),
     source: text().notNull(),
     // Keep validated JSON beside the original source so execution does not parse YAML again.
-    definition: text({ mode: "json" }).$type<Workflow>().notNull(),
+    definition: text({ mode: "json" }).$type<WorkflowDefinition>().notNull(),
   },
   (table) => [primaryKey({ columns: [table.repositoryId, table.path] })],
 );
@@ -41,7 +36,7 @@ export const workflowSessions = sqliteTable(
       .references(() => repositories.id),
     workflowPath: text("workflow_path").notNull(),
     workflowRevision: text("workflow_revision").notNull(),
-    workflowDefinition: text("workflow_definition", { mode: "json" }).$type<Workflow>().notNull(),
+    workflowDefinition: text("workflow_definition", { mode: "json" }).$type<WorkflowDefinition>().notNull(),
     originProvider: text("origin_provider").notNull(),
     originSubject: text("origin_subject").notNull(),
     conversationId: text("conversation_id"),
