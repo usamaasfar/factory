@@ -93,7 +93,8 @@ delete persistent files.
 The runtime contract is Unix-oriented. Provider images must include Bash, GNU
 coreutils, `setsid`, and `sleep`. Git, tar, language runtimes, and other coding
 tools belong to the workspace/environment image contract rather than this core
-transport contract.
+transport contract. Factory's baseline workspace image is defined in
+`docker/coding.Dockerfile`.
 
 ## Local Docker provider
 

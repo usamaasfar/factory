@@ -44,6 +44,8 @@ and agent execution are separate concerns.
   in-memory store, and deterministic clock.
 - `initialize.test.ts` verifies transfer, identity, credential exclusion, and
   destination safety through Pi's local execution environment.
+- `initialize.docker.test.ts` verifies initialization, suspension, resumption,
+  and destruction across the real Docker boundary.
 - `sqlite-store.test.ts` verifies the store against real in-memory SQLite.
 - `database-schema.ts` contains the `workspaces` table with the other schemas.
 - `index.ts` exports the public API.
@@ -89,6 +91,17 @@ perform agent work.
 Linked worktrees and submodules are currently rejected rather than risking an
 incomplete transfer or recursively copying ignored submodule files.
 
+The baseline image is defined by `docker/coding.Dockerfile` and built with:
+
+```sh
+bun run workspace:image
+```
+
+Docker initialization tests use `factory-coding:test`, or
+`FACTORY_CODING_TEST_IMAGE` when set. The image contains only the Unix sandbox
+contract plus Git, GNU tar, and CA certificates; language-specific tooling is a
+later image-policy decision.
+
 ## Persistence
 
 `WorkspaceStore` uses optimistic versions for atomic state transitions. A store
@@ -110,8 +123,7 @@ create one timer per workspace.
 
 ## Next phases
 
-1. Add a coding image containing Git, GNU tar, certificates, and the required
-   language tools, then run initialization against real Docker storage.
-2. Add a thin startup/cron reaper around `sweep()`.
-3. Integrate with Pi Durable only after workspace lifecycle and initialization
-   are complete.
+1. Add a thin startup/cron reaper around `sweep()`.
+2. Replace the stale application sandbox wiring with workspace lifecycle.
+3. Integrate the initialized workspace environment with Pi Durable.
+4. Define language-specific tooling policy for production coding images.

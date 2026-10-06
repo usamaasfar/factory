@@ -108,7 +108,7 @@ export async function initializeCodingWorkspace(
     );
 
     const status = await gitOutput(env, "status --porcelain=v1 --untracked-files=all", context, false);
-    if (status) throw new Error("Initialized workspace is not clean");
+    if (status) throw new Error(`Initialized workspace is not clean:\n${status}`);
   } finally {
     await env.remove(archive, { force: true }, withoutAbortSignal(context));
   }
@@ -134,6 +134,8 @@ async function hostCommand(
 ): Promise<Uint8Array> {
   context.abortSignal?.throwIfAborted();
   const child = Bun.spawn(command, {
+    // macOS tar otherwise emits `._*` AppleDouble files that dirty Linux checkouts.
+    env: { ...process.env, COPYFILE_DISABLE: "1" },
     stdin: stdin ?? "ignore",
     stdout: "pipe",
     stderr: "pipe",
