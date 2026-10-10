@@ -328,8 +328,9 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
             page,
             per_page: perPage,
           });
+          const pullRequests = data.map((pull) => `#${pull.number} ${pull.title}`).join(", ") || "none";
           return {
-            content: `Found ${data.length} pull requests in ${owner}/${repository}: ${data.map((pull) => `#${pull.number} ${pull.title}`).join(", ") || "none"}.`,
+            content: `Found ${data.length} pull requests in ${owner}/${repository}: ${pullRequests}.`,
           };
         } catch (error) {
           context.abortSignal?.throwIfAborted();
@@ -402,8 +403,9 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
             page,
             per_page: perPage,
           });
+          const commits = data.map((commit) => commit.sha.slice(0, 7)).join(", ") || "none";
           return {
-            content: `Found ${data.length} commits on PR #${pullRequest} in ${owner}/${repository}: ${data.map((commit) => commit.sha.slice(0, 7)).join(", ") || "none"}.`,
+            content: `Found ${data.length} commits on PR #${pullRequest} in ${owner}/${repository}: ${commits}.`,
           };
         } catch (error) {
           context.abortSignal?.throwIfAborted();
@@ -435,12 +437,14 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
             page,
             per_page: perPage,
           });
-          const files = data.map(
-            (file) =>
-              `${file.filename} (${file.status}, +${file.additions}/-${file.deletions})\n${file.patch ?? "Patch unavailable."}`,
-          );
+          const files = data
+            .map(
+              (file) =>
+                `${file.filename} (${file.status}, +${file.additions}/-${file.deletions})\n${file.patch ?? "Patch unavailable."}`,
+            )
+            .join("\n\n");
           return {
-            content: `Read ${data.length} changed files on PR #${pullRequest} in ${owner}/${repository}.\n\n${files.join("\n\n")}`,
+            content: `Read ${data.length} changed files on PR #${pullRequest} in ${owner}/${repository}.\n\n${files}`,
           };
         } catch (error) {
           context.abortSignal?.throwIfAborted();
@@ -496,8 +500,9 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
             page,
             per_page: perPage,
           });
+          const reviews = data.map((review) => `${review.id} ${review.state}`).join(", ") || "none";
           return {
-            content: `Found ${data.length} reviews on PR #${pullRequest} in ${owner}/${repository}: ${data.map((review) => `${review.id} ${review.state}`).join(", ") || "none"}.`,
+            content: `Found ${data.length} reviews on PR #${pullRequest} in ${owner}/${repository}: ${reviews}.`,
           };
         } catch (error) {
           context.abortSignal?.throwIfAborted();
@@ -699,8 +704,10 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
             repo: repository,
             pull_number: pullRequest,
           });
+          const reviewers = [...data.users.map((user) => `@${user.login}`), ...data.teams.map((team) => team.name)];
+          const requestedReviewers = reviewers.join(", ") || "none";
           return {
-            content: `Requested reviewers for PR #${pullRequest} in ${owner}/${repository}: ${[...data.users.map((user) => `@${user.login}`), ...data.teams.map((team) => team.name)].join(", ") || "none"}.`,
+            content: `Requested reviewers for PR #${pullRequest} in ${owner}/${repository}: ${requestedReviewers}.`,
           };
         } catch (error) {
           context.abortSignal?.throwIfAborted();

@@ -13,29 +13,30 @@ export function createReadTool(client: WebClient, _ctx: IntegrationContext) {
     }),
     replay: "safe",
     async execute({ channel, thread, cursor, limit }, _api, context) {
-      context.abortSignal?.throwIfAborted();
-      const response = await client.conversations.replies({
-        channel,
-        ts: thread,
-        cursor,
-        limit: limit ?? 15,
-      });
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              messages: response.messages?.map((message) => ({
-                user: message.user,
-                text: message.text,
-                ts: message.ts,
-              })),
-              hasMore: response.has_more,
-              nextCursor: response.response_metadata?.next_cursor,
-            }),
-          },
-        ],
-      };
+      try {
+        context.abortSignal?.throwIfAborted();
+        const response = await client.conversations.replies({
+          channel,
+          ts: thread,
+          cursor,
+          limit: limit ?? 15,
+        });
+        const messages = response.messages ?? [];
+        const formattedMessages =
+          messages.map((message) => `[${message.ts}] ${message.user ?? "unknown"}: ${message.text ?? ""}`).join("\n") ||
+          "none";
+        const nextCursor = response.response_metadata?.next_cursor;
+        const pagination = nextCursor ? `\nNext cursor: ${nextCursor}` : "";
+
+        return {
+          content: `Read ${messages.length} messages from Slack channel ${channel}, thread ${thread}:\n${formattedMessages}${pagination}`,
+        };
+      } catch (error) {
+        context.abortSignal?.throwIfAborted();
+        return {
+          content: `Failed to read the Slack thread: ${error instanceof Error ? error.message : String(error)}`,
+        };
+      }
     },
   });
 }

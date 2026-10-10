@@ -12,17 +12,25 @@ export function createReplyTool(client: WebClient, _ctx: IntegrationContext) {
     }),
     replay: "unsafe",
     async execute({ channel, thread, text }, _api, context) {
-      context.abortSignal?.throwIfAborted();
-      const response = await client.chat.postMessage({
-        channel,
-        thread_ts: thread,
-        text,
-        unfurl_links: false,
-        unfurl_media: false,
-      });
-      return {
-        content: [{ type: "text", text: JSON.stringify({ channel: response.channel, ts: response.ts }) }],
-      };
+      try {
+        context.abortSignal?.throwIfAborted();
+        const response = await client.chat.postMessage({
+          channel,
+          thread_ts: thread,
+          text,
+          unfurl_links: false,
+          unfurl_media: false,
+        });
+        const timestamp = response.ts ? ` at ${response.ts}` : "";
+        return {
+          content: `Replied in Slack channel ${response.channel ?? channel}${timestamp}.`,
+        };
+      } catch (error) {
+        context.abortSignal?.throwIfAborted();
+        return {
+          content: `Failed to reply in Slack: ${error instanceof Error ? error.message : String(error)}`,
+        };
+      }
     },
   });
 }

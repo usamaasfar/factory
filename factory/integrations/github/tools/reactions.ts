@@ -175,8 +175,11 @@ export function createReactionTools(github: Octokit, _ctx: IntegrationContext) {
             default:
               throw new Error("Unsupported reaction target.");
           }
+          const formattedReactions =
+            reactions.map((item) => `${item.content} by @${item.user?.login ?? "unknown"} (${item.id})`).join(", ") ||
+            "none";
           return {
-            content: `Found ${reactions.length} reactions on ${subject} in ${owner}/${repository}: ${reactions.map((item) => `${item.content} by @${item.user?.login ?? "unknown"} (${item.id})`).join(", ") || "none"}.`,
+            content: `Found ${reactions.length} reactions on ${subject} in ${owner}/${repository}: ${formattedReactions}.`,
           };
         } catch (error) {
           context.abortSignal?.throwIfAborted();

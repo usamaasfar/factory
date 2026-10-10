@@ -249,9 +249,10 @@ export function createPullRequestEvents(_ctx: IntegrationContext) {
       name: "pull_request_review.submitted",
       description: "A pull request review was submitted.",
       execute({ payload }) {
+        const reviewBody = payload.review.body ? `: ${payload.review.body}` : ".";
         return {
           subject: `repository:${payload.repository.id}:pull_request:${payload.pull_request.number}:review:${payload.review.id}`,
-          content: `@${payload.sender.login} submitted a ${payload.review.state} review on PR #${payload.pull_request.number} in ${payload.repository.full_name}${payload.review.body ? `: ${payload.review.body}` : "."}`,
+          content: `@${payload.sender.login} submitted a ${payload.review.state} review on PR #${payload.pull_request.number} in ${payload.repository.full_name}${reviewBody}`,
         };
       },
     }),
@@ -259,9 +260,10 @@ export function createPullRequestEvents(_ctx: IntegrationContext) {
       name: "pull_request_review.edited",
       description: "A pull request review was edited.",
       execute({ payload }) {
+        const reviewBody = payload.review.body ? `: ${payload.review.body}` : ".";
         return {
           subject: `repository:${payload.repository.id}:pull_request:${payload.pull_request.number}:review:${payload.review.id}`,
-          content: `@${payload.sender.login} edited a ${payload.review.state} review on PR #${payload.pull_request.number} in ${payload.repository.full_name}${payload.review.body ? `: ${payload.review.body}` : "."}`,
+          content: `@${payload.sender.login} edited a ${payload.review.state} review on PR #${payload.pull_request.number} in ${payload.repository.full_name}${reviewBody}`,
         };
       },
     }),
@@ -269,9 +271,10 @@ export function createPullRequestEvents(_ctx: IntegrationContext) {
       name: "pull_request_review.dismissed",
       description: "A pull request review was dismissed.",
       execute({ payload }) {
+        const reviewBody = payload.review.body ? `: ${payload.review.body}` : ".";
         return {
           subject: `repository:${payload.repository.id}:pull_request:${payload.pull_request.number}:review:${payload.review.id}`,
-          content: `@${payload.sender.login} dismissed a ${payload.review.state} review on PR #${payload.pull_request.number} in ${payload.repository.full_name}${payload.review.body ? `: ${payload.review.body}` : "."}`,
+          content: `@${payload.sender.login} dismissed a ${payload.review.state} review on PR #${payload.pull_request.number} in ${payload.repository.full_name}${reviewBody}`,
         };
       },
     }),
