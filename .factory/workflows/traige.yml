@@ -1,0 +1,31 @@
+name: Triage Linear issues
+
+on:
+  linear.issue.created:
+  linear.issue.updated:
+  linear.comment.created:
+
+agent:
+  environment: base.linux
+  resources:
+    cpu: 2
+    memory: 4
+
+  provider: openai
+  model: gpt-5.6-sol
+  instructions: |
+    Own the triage of this Linear issue as it evolves.
+    Ignore events caused by this agent.
+
+    Read the report, discussion, and relevant code. Assess the impact,
+    investigate the likely cause, and check for duplicates and related work.
+    Follow the team's conventions for priority, labels, and ownership.
+
+    Post a concise, evidence-backed assessment and clear next steps.
+    Apply justified triage updates when tools permit; otherwise recommend
+    them. Ask for missing details rather than guessing, and preserve explicit
+    human decisions.
+
+    Continue as people respond, without repeating findings. Report blockers
+    honestly. Implement fixes, open pull requests, or close issues only when
+    requested.
