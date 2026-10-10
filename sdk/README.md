@@ -2,7 +2,8 @@
 
 One package with subpath exports. Integration primitives are available from
 `factory-oss/integration`; their implementation lives in `src/integration.ts`.
-Workflow, sandbox, and workspace contracts will be developed later.
+Workflow, sandbox, and workspace contracts will be developed later. Reference
+provider adapters live in [`factory/integrations`](../factory/integrations/README.md).
 
 ## Shared setup and separate tools
 
@@ -111,10 +112,10 @@ path and factual content:
 }
 ```
 
-A comment can retain its specific identity:
-`repository:456:pull_request:42:comment:789`. Review replies also retain their
-parent comment and reply IDs. No subject parser or parent-routing policy is
-implemented yet; the complete comment path is not automatically a new conversation.
+A provider chooses the subject needed for its conversation model. GitHub comments
+can retain their specific identity, while Slack replies share a thread subject and
+Linear events share an issue subject. No subject parser or parent-routing policy is
+implemented in the SDK.
 
 Event name and delivery ID stay in `EventDelivery`; integration identity comes
 from configuration. Returning `undefined` ignores a delivery—for example, an
@@ -125,8 +126,8 @@ being rewritten or connected to this experimental API yet.
 Provider-native payloads stay private. `content` is short factual context, not
 instructions. The provider adapter authenticates deliveries; the host owns durable
 acceptance and retry deduplication. Event acceptance must not wait for agent execution; acceptance failure
-must not produce a success acknowledgement. Slack-specific acknowledgement and
-challenge requirements belong to its adapter when implemented.
+must not produce a success acknowledgement. Provider-specific acknowledgement,
+challenge, and retry behavior belongs to each adapter.
 
 Authentication, signature verification, token refresh, and resource authorization
 remain provider-owned. Credentials are never model-generated arguments. Shared
@@ -143,7 +144,8 @@ matching `pi-ai` schema library. This is intentionally runtime-coupled for now.
 - `execute(args, api, context)` retains invocation APIs and cancellation context.
 - `replay: "safe"` allows interrupted execution to rerun. Mutations normally use
   `"unsafe"`, also the runtime default.
-- Results use the existing content/details contract.
+- Integration tools return concise `{ content: string }` results; `defineTool`
+  adapts them to the durable runtime's text content blocks.
 - Calling `execute` directly does not perform argument validation.
 - Defining a tool or integration has no authentication/network side effects;
   invoking the integration factory initializes provider resources.
