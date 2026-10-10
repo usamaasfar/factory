@@ -62,13 +62,11 @@ changing the instructions or model of an existing long-lived conversation.
 
 ## Dispatch
 
-`WorkflowRuntime.dispatch()` currently accepts an internal normalized event with:
-
-- a provider and repository identity for matching;
-- a fully qualified event name;
-- a stable external subject for session routing;
-- a provider delivery ID for exactly-once conversation admission;
-- a factual prompt.
+`WorkflowRuntime.dispatch()` accepts the normalized integration event contract.
+It matches workflows by integration, scope, and event name; deduplicates by the
+integration, instance, and delivery ID; and routes sessions by integration,
+instance, scope, and subject. See `../contracts/integration.ts` for the validated
+event shape.
 
 Every matching registration is attempted independently. Failures are aggregated
 only after all matches have been attempted. Admission for the same session is

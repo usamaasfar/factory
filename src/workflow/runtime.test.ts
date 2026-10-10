@@ -4,7 +4,13 @@ import { type Conversation, defineExtension, type Harness } from "@earendil-work
 import type { Durable } from "../durable.ts";
 import type { WorkflowDefinition } from "./definition.ts";
 import { WorkflowRuntime } from "./runtime.ts";
-import type { WorkflowRegistration, WorkflowSession, WorkflowStore } from "./store.ts";
+import type {
+  WorkflowRegistration,
+  WorkflowRoute,
+  WorkflowSession,
+  WorkflowStore,
+  WorkflowSubscription,
+} from "./store.ts";
 
 const definition: WorkflowDefinition = {
   name: "Review",
@@ -29,6 +35,9 @@ test("concurrent deliveries for one subject create one conversation", async () =
   let conversationId: string | null = null;
   let createdSession = false;
   let conversationsCreated = 0;
+  let matchedSubscription: WorkflowSubscription | undefined;
+  let createdRoute: WorkflowRoute | undefined;
+  let submittedRequestId: string | undefined;
   const installed: string[] = [];
 
   const session = (): WorkflowSession => ({
@@ -43,8 +52,12 @@ test("concurrent deliveries for one subject create one conversation", async () =
   });
   const store: WorkflowStore = {
     replaceSnapshot: async () => undefined,
-    findRegistrations: async () => [registration],
-    findOrCreateSession: async () => {
+    findRegistrations: async (subscription) => {
+      matchedSubscription = subscription;
+      return [registration];
+    },
+    findOrCreateSession: async (options) => {
+      createdRoute = options.origin;
       const created = !createdSession;
       createdSession = true;
       return { session: session(), created };
@@ -61,7 +74,10 @@ test("concurrent deliveries for one subject create one conversation", async () =
   const conversation = {
     id: 1,
     configure: async () => undefined,
-    submit: async () => ({ wait: async () => undefined }),
+    submit: async (input: { requestId?: string }) => {
+      submittedRequestId = input.requestId;
+      return { wait: async () => undefined };
+    },
     waitForIdle: async () => undefined,
   } as unknown as Conversation;
   const harness = {
@@ -81,12 +97,13 @@ test("concurrent deliveries for one subject create one conversation", async () =
     workspaces: { suspend: async () => undefined },
   });
   const event = {
-    id: "github:delivery",
-    provider: "github",
-    repositoryId: "1",
-    name: "github.pull_request.opened",
+    integration: "github",
+    instance: "10",
+    id: "delivery",
+    name: "pull_request.opened",
+    scope: "1",
     subject: "repository:1:pull_request:2",
-    prompt: "Pull request opened.",
+    content: "Pull request opened.",
   };
 
   await Promise.all([
@@ -96,5 +113,15 @@ test("concurrent deliveries for one subject create one conversation", async () =
 
   expect(conversationsCreated).toBe(1);
   expect(session().conversationId).toBe("1");
+  expect(matchedSubscription).toEqual({
+    provider: "github",
+    repositoryId: "1",
+    event: "github.pull_request.opened",
+  });
+  expect(createdRoute).toEqual({
+    provider: "github",
+    subject: '["10","1","repository:1:pull_request:2"]',
+  });
+  expect(submittedRequestId).toBe('["github","10","delivery"]');
   expect(installed).toEqual(["github-session-1", "github-session-1"]);
 });

@@ -167,13 +167,14 @@ We need to establish:
 
 ### Event envelope
 
-The runtime needs stable event identity, a namespaced event name, matching
-scope, durable subject, and agent-facing content. The current event includes a
-repository ID, which is too specific for a general protocol.
+Integrations emit the normalized event contract in `../contracts/integration.ts`.
+It separates integration and configured instance identity from the event name,
+matching scope, durable subject, delivery identity, and agent-facing content.
+Provider-native payloads remain inside their integration.
 
-We must decide whether integrations provide only normalized text or also a
-versioned structured payload. Structured data improves policy and filtering but
-must remain serializable, bounded, and safe to persist.
+Whether integrations should also provide a versioned structured payload remains
+open. Structured data could improve policy and filtering but must remain
+serializable, bounded, and safe to persist.
 
 ### Scope and matching
 
