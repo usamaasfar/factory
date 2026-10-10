@@ -35,12 +35,3 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Temporary files
 temp
-
-# Agents
-.memory
-.agents
-.pi
-skills-lock.json
-AGENTS.md
-
-drizzle
