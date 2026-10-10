@@ -1,8 +1,11 @@
 import type { Context } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import type { SandboxCommand, SandboxCommandRunner } from "../command.ts";
-import { FactorySandbox } from "../factory-sandbox.ts";
-import type { SandboxProvider } from "../provider.ts";
+import {
+  createCommandSandboxEnvironment,
+  type SandboxCommand,
+  type SandboxCommandRunner,
+  type SandboxProvider,
+} from "factory-oss/sandbox";
 
 const WORKSPACE = "/workspace";
 const LABEL = "com.factory.sandbox";
@@ -42,15 +45,13 @@ export interface LocalDockerSandboxOptions {
 }
 
 /** Persistent local sandboxes backed by Docker Engine containers and volumes. */
-export class LocalDockerSandboxProvider implements SandboxProvider {
-  readonly #image: string;
+export function createLocalDockerSandboxProvider(options: LocalDockerSandboxOptions): SandboxProvider {
+  const { image } = options;
+  if (!image) throw new TypeError("Docker sandbox image is required");
 
-  constructor(options: LocalDockerSandboxOptions) {
-    if (!options.image) throw new TypeError("Docker sandbox image is required");
-    this.#image = options.image;
-  }
+  return { open, suspend, destroy };
 
-  async open(key: string, context: Context): Promise<FactorySandbox> {
+  async function open(key: string, context: Context) {
     const resource = resourceFor(key);
     let container = await inspectContainer(resource.container, context);
 
@@ -85,7 +86,7 @@ export class LocalDockerSandboxProvider implements SandboxProvider {
           WORKSPACE,
           "--entrypoint",
           "/usr/bin/sleep",
-          this.#image,
+          image,
           "infinity",
         ],
         context,
@@ -105,14 +106,14 @@ export class LocalDockerSandboxProvider implements SandboxProvider {
     }
     if (!container.State?.Running) await checkedDocker(["start", resource.container], context);
 
-    return new FactorySandbox({
+    return createCommandSandboxEnvironment({
       id: `docker:local:${resource.identity}`,
       cwd: WORKSPACE,
       run: commandRunner(resource.container),
     });
   }
 
-  async suspend(key: string, context: Context): Promise<void> {
+  async function suspend(key: string, context: Context): Promise<void> {
     const resource = resourceFor(key);
     const container = await inspectContainer(resource.container, context);
     if (container && container.Config?.Labels?.[LABEL] !== resource.identity) {
@@ -124,9 +125,9 @@ export class LocalDockerSandboxProvider implements SandboxProvider {
     if (removed.exitCode !== 0 && !isMissing(removed.stderr)) throw dockerFailure("suspend sandbox", removed);
   }
 
-  async destroy(key: string, context: Context): Promise<void> {
+  async function destroy(key: string, context: Context): Promise<void> {
     const resource = resourceFor(key);
-    await this.suspend(key, context);
+    await suspend(key, context);
 
     const volume = await inspectVolume(resource.volume, context);
     if (volume && volume.Labels?.[LABEL] !== resource.identity) {

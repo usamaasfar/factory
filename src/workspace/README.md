@@ -105,7 +105,7 @@ requested `origin` tracking ref. It deliberately does not modify `HEAD`, the
 index, or working-tree files. The agent decides whether to merge, rebase,
 cherry-pick, or resolve conflicts.
 
-The baseline image is defined by `docker/coding.Dockerfile` and built with:
+The baseline image is defined by `factory/sandbox/coding.Dockerfile` and built with:
 
 ```sh
 bun run workspace:image

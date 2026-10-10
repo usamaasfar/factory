@@ -10,7 +10,7 @@
 import type { Context } from "@earendil-works/chord";
 import { withoutAbortSignal } from "@earendil-works/chord/context";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
-import type { SandboxProvider } from "../sandbox/provider.ts";
+import type { SandboxProvider } from "factory-oss/sandbox";
 import type { WorkspaceRecord, WorkspaceState, WorkspaceStore } from "./store.ts";
 
 const DEFAULT_IDLE_TIMEOUT = 5 * 60 * 1_000; // 5 minutes

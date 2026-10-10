@@ -1,9 +1,9 @@
 # factory-oss SDK
 
 One package with subpath exports. Integration primitives are available from
-`factory-oss/integration`; their implementation lives in `src/integration.ts`.
-Workflow, sandbox, and workspace contracts will be developed later. Reference
-provider adapters live in [`factory/integrations`](../factory/integrations/README.md).
+`factory-oss/integration`, and sandbox primitives from `factory-oss/sandbox`.
+Workflow and workspace contracts will be developed later. Reference adapters
+live under [`factory`](../factory).
 
 ## Shared setup and separate tools
 
@@ -149,6 +149,47 @@ matching `pi-ai` schema library. This is intentionally runtime-coupled for now.
 - Calling `execute` directly does not perform argument validation.
 - Defining a tool or integration has no authentication/network side effects;
   invoking the integration factory initializes provider resources.
+
+## Sandboxes
+
+`SandboxProvider` separates Factory's workspace lifecycle from infrastructure:
+
+```ts
+interface SandboxProvider {
+  open(key: string, context: Context): Promise<ExecutionEnv>;
+  suspend(key: string, context: Context): Promise<void>;
+  destroy(key: string, context: Context): Promise<void>;
+}
+```
+
+`open` creates or resumes compute attached to persistent storage. `suspend`
+releases compute while preserving that storage, and `destroy` removes both.
+Operations use a stable Factory key and must tolerate retries. Authentication,
+provider resource IDs, and storage mechanics remain implementation details.
+
+Providers may implement Pi Durable's `ExecutionEnv` directly. Providers with a
+POSIX command transport can instead use `createCommandSandboxEnvironment`:
+
+```ts
+return createCommandSandboxEnvironment({
+  id: `provider:${persistentResourceId}`,
+  cwd: "/workspace",
+  run: async (command, context) => {
+    // Execute the command through the provider and return its exit code.
+  },
+});
+```
+
+The command adapter supplies Pi's filesystem and shell behavior. Its image must
+provide Bash and GNU coreutils. The runner preserves stdout/stderr arrival order,
+awaits output callbacks, and stops an active command before cancellation settles.
+Equal environment IDs must see the same files at the same paths. `cleanup()`
+cancels work started through that environment handle; it does not suspend or
+destroy provider resources.
+
+The local Docker reference provider lives in
+[`factory/sandbox`](../factory/sandbox/README.md). Other providers, such as Modal
+or E2B, can implement `SandboxProvider` without changing Factory or this SDK.
 
 ## Development
 

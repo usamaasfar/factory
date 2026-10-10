@@ -1,10 +1,10 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { createModels } from "@earendil-works/pi-ai/models";
 import { deepseekProvider } from "@earendil-works/pi-ai/providers/deepseek";
+import { createLocalDockerSandboxProvider } from "../factory/sandbox/index.ts";
 import { openDatabase } from "./database.ts";
 import { openDurable } from "./durable.ts";
 import { GitHubApp } from "./integrations/github/index.ts";
-import { LocalDockerSandboxProvider } from "./sandbox/index.ts";
 import { createServer } from "./server.ts";
 import { SqliteWorkflowStore, WorkflowRuntime } from "./workflow/index.ts";
 import { SqliteWorkspaceStore, WorkspaceLifecycle } from "./workspace/index.ts";
@@ -20,7 +20,7 @@ const models = createModels();
 models.setProvider(deepseekProvider());
 
 const workspaces = new WorkspaceLifecycle({
-  provider: new LocalDockerSandboxProvider({ image: Bun.env.SANDBOX_IMAGE ?? "factory-coding:test" }),
+  provider: createLocalDockerSandboxProvider({ image: Bun.env.SANDBOX_IMAGE ?? "factory-coding:test" }),
   store: new SqliteWorkspaceStore(database),
 });
 const workflowStore = new SqliteWorkflowStore(database);

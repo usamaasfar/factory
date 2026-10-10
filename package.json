@@ -10,7 +10,7 @@
     "format": "biome check --write --files-ignore-unknown=true .",
     "format:check": "biome check --files-ignore-unknown=true .",
     "db:generate": "drizzle-kit generate",
-    "workspace:image": "docker build --file docker/coding.Dockerfile --tag factory-coding:test docker",
+    "workspace:image": "docker build --file factory/sandbox/coding.Dockerfile --tag factory-coding:test factory/sandbox",
     "serve": "bun run src/index.ts",
     "dev": "bun --hot run src/index.ts",
     "test": "bun test"

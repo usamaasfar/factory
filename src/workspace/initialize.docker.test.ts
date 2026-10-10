@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { type ExecutionEnv, getOrThrow } from "@earendil-works/pi-durable/env";
+import { createLocalDockerSandboxProvider } from "../../factory/sandbox/local.ts";
 import { openDatabase } from "../database.ts";
-import { LocalDockerSandboxProvider } from "../sandbox/docker/local.ts";
 import { initializeCodingWorkspace, prepareCodingWorkspace } from "./initialize.ts";
 import { WorkspaceLifecycle } from "./lifecycle.ts";
 import { exportCodingWorkspaceChanges } from "./publish.ts";
@@ -14,7 +14,7 @@ import { findRemoteBranchHead } from "./update.ts";
 
 const IMAGE = process.env.FACTORY_CODING_TEST_IMAGE ?? "factory-coding:test";
 const dockerTest = test.skipIf(!hasDockerImage(IMAGE));
-const provider = new LocalDockerSandboxProvider({ image: IMAGE });
+const provider = createLocalDockerSandboxProvider({ image: IMAGE });
 const workspaceKeys = new Set<string>();
 const directories = new Set<string>();
 
