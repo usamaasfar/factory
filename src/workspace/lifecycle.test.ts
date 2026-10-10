@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Context } from "@earendil-works/chord";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
-import { FactorySandbox } from "../sandbox/factory-sandbox.ts";
-import type { SandboxProvider } from "../sandbox/provider.ts";
+import { createCommandSandboxEnvironment, type ExecutionEnv, type SandboxProvider } from "factory-oss/sandbox";
 import { WorkspaceLifecycle } from "./lifecycle.ts";
 import type { WorkspaceRecord, WorkspaceStore } from "./store.ts";
 
@@ -276,14 +275,14 @@ class FakeSandboxProvider implements SandboxProvider {
   readonly #storage = new Set<string>();
   failNextOpen = false;
 
-  async open(key: string, _context: Context): Promise<FactorySandbox> {
+  async open(key: string, _context: Context): Promise<ExecutionEnv> {
     this.#storage.add(key);
     this.#compute.add(key);
     if (this.failNextOpen) {
       this.failNextOpen = false;
       throw new Error("compute unavailable");
     }
-    return new FactorySandbox({
+    return createCommandSandboxEnvironment({
       id: `test:${key}`,
       cwd: "/workspace",
       run: async () => ({ exitCode: 0 }),

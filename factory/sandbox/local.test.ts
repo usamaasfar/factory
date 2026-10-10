@@ -2,11 +2,11 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { BACKGROUND_CONTEXT, withAbortSignal } from "@earendil-works/chord/context";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { getOrThrow } from "@earendil-works/pi-durable/env";
-import { LocalDockerSandboxProvider } from "./local.ts";
+import { createLocalDockerSandboxProvider } from "./local.ts";
 
-const IMAGE = process.env.FACTORY_SANDBOX_TEST_IMAGE ?? "factory-sandbox:test";
+const IMAGE = process.env.FACTORY_SANDBOX_TEST_IMAGE ?? "factory-coding:test";
 const dockerTest = test.skipIf(!hasDockerImage(IMAGE));
-const provider = new LocalDockerSandboxProvider({ image: IMAGE });
+const provider = createLocalDockerSandboxProvider({ image: IMAGE });
 const keys = new Set<string>();
 
 afterEach(async () => {
@@ -151,7 +151,7 @@ describe("local Docker Pi execution environment", () => {
       );
       expect(docker("volume", "ls", "--quiet", "--filter", `label=com.factory.sandbox=${identity}`)).not.toBe("");
 
-      const resumed: ExecutionEnv = await new LocalDockerSandboxProvider({ image: IMAGE }).open(
+      const resumed: ExecutionEnv = await createLocalDockerSandboxProvider({ image: IMAGE }).open(
         key,
         BACKGROUND_CONTEXT,
       );

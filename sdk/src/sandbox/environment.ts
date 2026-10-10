@@ -2,7 +2,7 @@
  * Pi Durable execution environment backed by one command runner.
  *
  * Providers supply sandbox identity, a working directory, and command transport.
- * This class supplies Pi's shell and filesystem semantics.
+ * This adapter supplies Pi's shell and filesystem semantics.
  *
  * This implementation targets the installed `@earendil-works/pi-durable`
  * release. Re-audit it against Pi's `ExecutionEnv` whenever that dependency is updated.
@@ -26,7 +26,13 @@ import {
   type TextLineReader,
   toError,
 } from "@earendil-works/pi-durable/env";
-import type { SandboxCommand, SandboxCommandOutput, SandboxCommandResult, SandboxCommandRunner } from "./command.ts";
+import type {
+  CommandSandboxEnvironmentOptions,
+  SandboxCommand,
+  SandboxCommandOutput,
+  SandboxCommandResult,
+  SandboxCommandRunner,
+} from "./index.ts";
 
 const MAX_TIMEOUT_MS = 2_147_483_647;
 const STATUS = {
@@ -37,23 +43,19 @@ const STATUS = {
   invalid: 44,
 } as const;
 
-export interface FactorySandboxOptions {
-  /** Stable identity for the sandbox's file namespace. */
-  readonly id: string;
-  /** Absolute POSIX working directory. */
-  readonly cwd: string;
-  readonly run: SandboxCommandRunner;
+/** Builds a Pi Durable environment over a POSIX command transport. */
+export function createCommandSandboxEnvironment(options: CommandSandboxEnvironmentOptions): ExecutionEnv {
+  return new CommandSandboxEnvironment(options);
 }
 
-/** A complete Pi Durable environment implemented through sandbox commands. */
-export class FactorySandbox implements ExecutionEnv {
+class CommandSandboxEnvironment implements ExecutionEnv {
   readonly id: string;
   cwd: string;
 
   readonly #run: SandboxCommandRunner;
   readonly #active = new Map<AbortController, Promise<unknown>>();
 
-  constructor(options: FactorySandboxOptions) {
+  constructor(options: CommandSandboxEnvironmentOptions) {
     if (!options.id) throw new TypeError("Sandbox id is required");
     if (!posix.isAbsolute(options.cwd) || options.cwd.includes("\0")) {
       throw new TypeError("Sandbox cwd must be an absolute POSIX path");
