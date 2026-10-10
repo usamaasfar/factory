@@ -16,18 +16,25 @@ import { defineTool, Type, type IntegrationContext } from "factory-oss/integrati
 import type { ProviderClient } from "../client.ts";
 
 export function createIssueTools(client: ProviderClient, ctx: IntegrationContext) {
-  return [
-    defineTool({
+  return {
+    readIssue: defineTool({
       name: "read_issue",
       description: "Read an issue accessible to the configured client.",
       parameters: Type.Object({ id: Type.String() }),
       replay: "safe",
-      async execute({ id }) {
-        const issue = await client.readIssue(id);
-        return { content: [{ type: "text", text: JSON.stringify(issue) }] };
+      async execute({ id }, _api, context) {
+        try {
+          const issue = await client.readIssue(id, { signal: context.abortSignal });
+          return { content: `Read issue ${issue.id}: ${issue.title}.` };
+        } catch (error) {
+          context.abortSignal?.throwIfAborted();
+          return {
+            content: `Failed to read issue ${id}: ${error instanceof Error ? error.message : String(error)}`,
+          };
+        }
       },
     }),
-  ];
+  };
 }
 ```
 
@@ -42,8 +49,8 @@ export default defineIntegration(async (options: ProviderOptions, ctx) => {
   const client = await createAuthenticatedClient(options);
   return {
     tools: [
-      ...createIssueTools(client, ctx),
-      ...createCommentTools(client, ctx),
+      ...Object.values(createIssueTools(client, ctx)),
+      ...Object.values(createCommentTools(client, ctx)),
     ],
     // Optional, only when this client owns resources requiring cleanup.
     dispose: async () => { await client.close(); },
@@ -76,41 +83,48 @@ const webhookUrl = ctx.webhook.register(async (request) => {
 
 `receiveVerifiedProviderDelivery` represents provider implementation code, not an
 SDK helper. It returns `{ id, name, payload }`, with the provider payload kept
-private until a matching definition interprets it. Register once during startup, before serving requests. Factory mounts
-`POST /webhook/<configured-name>` on its existing server and returns a URL using
-its trusted public-base-URL configuration. Duplicate route registration fails.
+private until a matching definition interprets it. The host must implement these
+capabilities; the SDK only declares their contract. The intended host registers
+`POST /webhook/<configured-name>` once during startup and returns a URL using its
+trusted public-base-URL configuration. Duplicate registration should fail.
 The name is separate from provider kind; `github-work` can emit `github` events.
-Routes currently live for the application's lifetime; hot unloading is not
-implemented. Local registration does not configure the provider remotely.
+Hot unloading is not defined. Local registration does not configure the provider
+remotely.
 
-Integrations return `events` alongside `tools`. Each event factory calls
-`defineEvent({ name, description, parameters, execute })` and is independently
-exported, just like a tool factory. `parameters` is a schema with a `parse`
-method; it infers the payload type and validates before execution. Factories
-accept `ctx` and are grouped in files by provider event family.
+Integrations return `events` alongside `tools`. A provider-family factory returns
+named `defineEvent<ProviderPayload>({ name, description, execute })` definitions.
+Official provider types describe payloads after provider authentication. An optional
+`parameters.parse` can perform runtime validation when the provider boundary needs it.
 
 Factory owns the name-based registry. `ctx.events.receive(delivery)` looks up a
-definition, executes it, and accepts its normalized result. Unsupported names
-return `false` without executing anything. Duplicate definitions fail startup.
+definition, executes it, and accepts its result. Unsupported names or ignored
+deliveries return `false`. Duplicate definitions must fail startup.
 There is no switch or provider-side event registry.
 
-Each definition returns the existing normalized event shape:
+The experimental `EventResult` contains only a developer-constructed subject
+path and factual content:
 
 ```ts
 {
-  integration: "github",
-  instance: "123",          // Installation/account identity
-  id: "delivery-id",        // Delivery identity within that instance
-  name: "pull_request.opened",
-  scope: "456",             // Workflow matching boundary
   subject: "repository:456:pull_request:42",
   content: "@alice opened PR #42 in acme/api: Fix login",
 }
 ```
 
+A comment can retain its specific identity:
+`repository:456:pull_request:42:comment:789`. Review replies also retain their
+parent comment and reply IDs. No subject parser or parent-routing policy is
+implemented yet; the complete comment path is not automatically a new conversation.
+
+Event name and delivery ID stay in `EventDelivery`; integration identity comes
+from configuration. Returning `undefined` ignores a delivery—for example, an
+ordinary issue comment when only PR comments are supported. This result deliberately differs from the
+legacy `src/contracts/integration.ts` envelope. The application in `src/` is not
+being rewritten or connected to this experimental API yet.
+
 Provider-native payloads stay private. `content` is short factual context, not
-instructions. The host validates events and owns durable acceptance and retry
-deduplication. Event acceptance must not wait for agent execution; acceptance failure
+instructions. The provider adapter authenticates deliveries; the host owns durable
+acceptance and retry deduplication. Event acceptance must not wait for agent execution; acceptance failure
 must not produce a success acknowledgement. Slack-specific acknowledgement and
 challenge requirements belong to its adapter when implemented.
 

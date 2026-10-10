@@ -1,14 +1,9 @@
 import { createAppAuth } from "@octokit/auth-app";
 import { Octokit } from "@octokit/rest";
 import { defineIntegration } from "factory-oss/integration";
-import {
-  createPullRequestOpenedEvent,
-  createPullRequestReadyForReviewEvent,
-  createPullRequestReopenedEvent,
-  createPullRequestSynchronizeEvent,
-} from "./events/pull-request.ts";
-import { createCommentTool } from "./tools/issues.ts";
-import { createReadTool } from "./tools/pulls.ts";
+import { createIssueCommentEvents } from "./events/issue-comment.ts";
+import { createPullRequestEvents } from "./events/pull-request.ts";
+import { createPullTools } from "./tools/pulls.ts";
 import { createGitHubWebhookHandler } from "./webhook.ts";
 
 export type GitHubOptions = {
@@ -19,7 +14,7 @@ export type GitHubOptions = {
   repositoryId: number;
 };
 
-/** One installation-authenticated client shared by GitHub tools. */
+/** Experimental PR slice: one authenticated client, explicit event/tool registrations. */
 export const createGitHubIntegration = defineIntegration((options: GitHubOptions, ctx) => {
   const client = new Octokit({
     authStrategy: createAppAuth,
@@ -30,6 +25,9 @@ export const createGitHubIntegration = defineIntegration((options: GitHubOptions
       repositoryIds: [options.repositoryId],
     },
   });
+  const pullTools = createPullTools(client, ctx);
+  const pullRequestEvents = createPullRequestEvents(ctx);
+  const issueCommentEvents = createIssueCommentEvents(ctx);
   const webhookUrl = ctx.webhook.register(
     createGitHubWebhookHandler(
       {
@@ -43,13 +41,8 @@ export const createGitHubIntegration = defineIntegration((options: GitHubOptions
 
   return {
     webhookUrl,
-    events: [
-      createPullRequestOpenedEvent(ctx),
-      createPullRequestReopenedEvent(ctx),
-      createPullRequestSynchronizeEvent(ctx),
-      createPullRequestReadyForReviewEvent(ctx),
-    ],
-    tools: [createReadTool(client, ctx), createCommentTool(client, ctx)],
+    events: [...Object.values(pullRequestEvents), ...Object.values(issueCommentEvents)],
+    tools: Object.values(pullTools),
   };
 });
 

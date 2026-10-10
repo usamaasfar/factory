@@ -1,12 +1,11 @@
 import { verify } from "@octokit/webhooks-methods";
 import type { IntegrationContext, WebhookHandler } from "factory-oss/integration";
-import * as z from "zod";
 
-const envelopeSchema = z.object({
-  action: z.string().optional(),
-  installation: z.object({ id: z.number().int().positive() }).optional(),
-  repository: z.object({ id: z.number().int().positive() }).optional(),
-});
+type GitHubEnvelope = {
+  action?: string;
+  installation?: { id: number };
+  repository?: { id: number };
+};
 
 export type GitHubWebhookOptions = {
   secret: string;
@@ -38,16 +37,16 @@ export function createGitHubWebhookHandler(options: GitHubWebhookOptions, ctx: I
     if (!verified) return new Response("Invalid GitHub signature", { status: 401 });
 
     let payload: unknown;
-    let envelope: z.infer<typeof envelopeSchema>;
     try {
       payload = JSON.parse(body);
-      envelope = envelopeSchema.parse(payload);
-    } catch (error) {
-      if (error instanceof SyntaxError || error instanceof z.ZodError) {
-        return new Response("Invalid GitHub payload", { status: 400 });
-      }
-      throw error;
+    } catch {
+      return new Response("Invalid GitHub payload", { status: 400 });
     }
+    if (!payload || typeof payload !== "object") {
+      return new Response("Invalid GitHub payload", { status: 400 });
+    }
+
+    const envelope = payload as GitHubEnvelope;
     if (envelope.installation && envelope.installation.id !== options.installationId) {
       return new Response(null, { status: 204 });
     }
@@ -55,19 +54,11 @@ export function createGitHubWebhookHandler(options: GitHubWebhookOptions, ctx: I
       return new Response(null, { status: 204 });
     }
 
-    try {
-      const accepted = await ctx.events.receive({
-        id,
-        name: envelope.action ? `${name}.${envelope.action}` : name,
-        payload,
-      });
-      return new Response(null, { status: accepted ? 202 : 204 });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return new Response("Invalid GitHub event payload", { status: 400 });
-      }
-      // Acceptance failures propagate as 5xx so GitHub can retry delivery.
-      throw error;
-    }
+    const accepted = await ctx.events.receive({
+      id,
+      name: envelope.action ? `${name}.${envelope.action}` : name,
+      payload,
+    });
+    return new Response(null, { status: accepted ? 202 : 204 });
   };
 }

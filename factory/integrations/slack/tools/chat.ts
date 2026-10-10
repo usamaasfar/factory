@@ -21,15 +21,7 @@ export function createReplyTool(client: WebClient, _ctx: IntegrationContext) {
         unfurl_media: false,
       });
       return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({
-              channel: response.channel,
-              ts: response.ts,
-            }),
-          },
-        ],
+        content: [{ type: "text", text: JSON.stringify({ channel: response.channel, ts: response.ts }) }],
       };
     },
   });

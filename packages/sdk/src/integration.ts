@@ -1,4 +1,9 @@
-import type { ToolRegistration } from "@earendil-works/pi-durable";
+import type { TSchema } from "@earendil-works/pi-ai";
+import {
+  defineTool as defineRuntimeTool,
+  type ToolExecutionResult,
+  type ToolRegistration,
+} from "@earendil-works/pi-durable";
 
 export type { Static, TSchema } from "@earendil-works/pi-ai";
 export { Type } from "@earendil-works/pi-ai";
@@ -7,15 +12,34 @@ export type {
   ToolExecutionResult,
   ToolRegistration as IntegrationTool,
 } from "@earendil-works/pi-durable";
-export { defineTool } from "@earendil-works/pi-durable";
+export interface ToolResult {
+  /** Short, factual feedback shown to the agent after the tool call. */
+  readonly content: string;
+}
 
-/** Normalized event; provider payloads remain private to the integration. */
-export interface IntegrationEvent {
-  readonly integration: string;
-  readonly instance: string;
-  readonly id: string;
-  readonly name: string;
-  readonly scope: string;
+/** Adapt the integration's plain text result to Pi Durable's message format. */
+export function defineTool<Schema extends TSchema>(
+  definition: Omit<ToolRegistration<Schema>, "execute"> & {
+    execute(
+      ...args: Parameters<ToolRegistration<Schema>["execute"]>
+    ): ToolResult | ToolExecutionResult | Promise<ToolResult | ToolExecutionResult>;
+  },
+): ToolRegistration<Schema> {
+  return defineRuntimeTool({
+    ...definition,
+    async execute(...args) {
+      const result = await definition.execute(...args);
+      if (typeof result.content === "string") {
+        return { content: [{ type: "text", text: result.content }] };
+      }
+      return result as ToolExecutionResult;
+    },
+  });
+}
+
+/** Experimental event result. Delivery metadata stays outside the result. */
+export interface EventResult {
+  /** Integration-defined resource path, including parent and comment identity. */
   readonly subject: string;
   /** Short, factual agent-facing description, not instructions. */
   readonly content: string;
@@ -32,24 +56,24 @@ export interface EventDelivery {
 export interface EventDefinition {
   readonly name: string;
   readonly description: string;
-  execute(delivery: EventDelivery): IntegrationEvent | Promise<IntegrationEvent>;
+  execute(delivery: EventDelivery): EventResult | undefined | Promise<EventResult | undefined>;
 }
 
-/** Infer the provider payload from its schema; validate before executing. */
-export function defineEvent<Payload>(definition: {
+/** Define how a verified provider delivery becomes agent-facing context. */
+export function defineEvent<Payload = unknown>(definition: {
   name: string;
   description: string;
-  parameters: { parse(value: unknown): Payload };
-  execute(delivery: { id: string; payload: Payload }): IntegrationEvent | Promise<IntegrationEvent>;
+  parameters?: { parse(value: unknown): Payload };
+  execute(delivery: { id: string; payload: Payload }): EventResult | undefined | Promise<EventResult | undefined>;
 }): EventDefinition {
   return {
     name: definition.name,
     description: definition.description,
     execute(delivery) {
-      return definition.execute({
-        id: delivery.id,
-        payload: definition.parameters.parse(delivery.payload),
-      });
+      const payload = definition.parameters
+        ? definition.parameters.parse(delivery.payload)
+        : (delivery.payload as Payload);
+      return definition.execute({ id: delivery.id, payload });
     },
   };
 }
