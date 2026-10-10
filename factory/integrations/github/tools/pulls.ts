@@ -78,6 +78,37 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
       },
     }),
 
+    createPullRequestComment: defineTool({
+      name: "github_create_pull_request_comment",
+      description: "Create a conversation comment on a GitHub pull request.",
+      parameters: Type.Object({
+        owner,
+        repository,
+        pullRequest,
+        body: Type.String({ description: "Comment in GitHub-flavored Markdown." }),
+      }),
+      replay: "unsafe",
+      execute: async ({ owner, repository, pullRequest, body }, _api, context) => {
+        try {
+          const response = await github.rest.issues.createComment({
+            request: { signal: context.abortSignal },
+            owner,
+            repo: repository,
+            issue_number: pullRequest,
+            body,
+          });
+          return {
+            content: `Created a comment on PR #${pullRequest} in ${owner}/${repository}: ${response.data.html_url}`,
+          };
+        } catch (error) {
+          context.abortSignal?.throwIfAborted();
+          return {
+            content: `Failed to comment on PR #${pullRequest}: ${error instanceof Error ? error.message : String(error)}`,
+          };
+        }
+      },
+    }),
+
     createReplyToReviewComment: defineTool({
       name: "github_reply_to_review_comment",
       description: "Reply to a top-level review comment on a GitHub pull request.",
@@ -385,7 +416,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
 
     createListPullRequestFiles: defineTool({
       name: "github_list_pull_request_files",
-      description: "List files changed by a pull request.",
+      description: "Read files and patches changed by a GitHub pull request.",
       parameters: Type.Object({
         owner,
         repository,
@@ -404,8 +435,12 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
             page,
             per_page: perPage,
           });
+          const files = data.map(
+            (file) =>
+              `${file.filename} (${file.status}, +${file.additions}/-${file.deletions})\n${file.patch ?? "Patch unavailable."}`,
+          );
           return {
-            content: `Found ${data.length} changed files on PR #${pullRequest} in ${owner}/${repository}: ${data.map((file) => file.filename).join(", ") || "none"}.`,
+            content: `Read ${data.length} changed files on PR #${pullRequest} in ${owner}/${repository}.\n\n${files.join("\n\n")}`,
           };
         } catch (error) {
           context.abortSignal?.throwIfAborted();

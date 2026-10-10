@@ -4,6 +4,7 @@ import { defineIntegration } from "factory-oss/integration";
 import { createIssueCommentEvents } from "./events/issue-comment.ts";
 import { createPullRequestEvents } from "./events/pull-request.ts";
 import { createPullTools } from "./tools/pulls.ts";
+import { createReactionTools } from "./tools/reactions.ts";
 import { createGitHubWebhookHandler } from "./webhook.ts";
 
 export type GitHubOptions = {
@@ -26,6 +27,7 @@ export const createGitHubIntegration = defineIntegration((options: GitHubOptions
     },
   });
   const pullTools = createPullTools(client, ctx);
+  const reactionTools = createReactionTools(client, ctx);
   const pullRequestEvents = createPullRequestEvents(ctx);
   const issueCommentEvents = createIssueCommentEvents(ctx);
   const webhookUrl = ctx.webhook.register(
@@ -42,7 +44,7 @@ export const createGitHubIntegration = defineIntegration((options: GitHubOptions
   return {
     webhookUrl,
     events: [...Object.values(pullRequestEvents), ...Object.values(issueCommentEvents)],
-    tools: Object.values(pullTools),
+    tools: [...Object.values(pullTools), ...Object.values(reactionTools)],
   };
 });
 
