@@ -1,0 +1,26 @@
+{
+  "name": "factory-oss",
+  "version": "0.1.0",
+  "exports": {
+    "./integration": "./src/integration.ts"
+  },
+  "files": [
+    "src/integration.ts",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@earendil-works/pi-ai": "1.0.2",
+    "@earendil-works/pi-durable": "1.0.2"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  }
+}
