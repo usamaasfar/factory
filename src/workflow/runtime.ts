@@ -2,19 +2,10 @@ import type { Context } from "@earendil-works/chord";
 import { withoutAbortSignal } from "@earendil-works/chord/context";
 import type { Conversation, ConversationId, Extension, Harness, Submission } from "@earendil-works/pi-durable";
 import { CodingTools } from "@earendil-works/pi-durable/tools";
+import { type IntegrationEvent, integrationEventSchema } from "../contracts/integration.ts";
 import type { Durable } from "../durable.ts";
 import type { WorkspaceLifecycle } from "../workspace/index.ts";
 import type { WorkflowSession, WorkflowStore } from "./store.ts";
-
-/** Provider-neutral event admitted to the workflow runtime. */
-export interface WorkflowEvent {
-  readonly id: string;
-  readonly provider: string;
-  readonly repositoryId: string;
-  readonly name: string;
-  readonly subject: string;
-  readonly prompt: string;
-}
 
 export type ActivateWorkflow = (session: WorkflowSession, context: Context) => Promise<Extension>;
 
@@ -38,19 +29,22 @@ export class WorkflowRuntime {
   }
 
   /** Dispatches an event to every matching workflow and returns the match count. */
-  async dispatch(event: WorkflowEvent, activate: ActivateWorkflow, context: Context): Promise<number> {
+  async dispatch(input: IntegrationEvent, activate: ActivateWorkflow, context: Context): Promise<number> {
+    const event = integrationEventSchema.parse(input);
+    const name = `${event.integration}.${event.name}`;
+    const subject = JSON.stringify([event.instance, event.scope, event.subject]);
     const registrations = await this.#store.findRegistrations(
-      { provider: event.provider, repositoryId: event.repositoryId, event: event.name },
+      { provider: event.integration, repositoryId: event.scope, event: name },
       context,
     );
 
     const results = await Promise.allSettled(
       registrations.map((registration) =>
         this.#exclusive(
-          JSON.stringify([registration.repositoryId, registration.path, event.provider, event.subject]),
+          JSON.stringify([registration.repositoryId, registration.path, event.integration, subject]),
           async () => {
             const { session, created } = await this.#store.findOrCreateSession(
-              { registration, origin: { provider: event.provider, subject: event.subject } },
+              { registration, origin: { provider: event.integration, subject } },
               context,
             );
             console.info(`${created ? "Created" : "Found"} workflow session ${session.id} for ${registration.path}`);
@@ -62,13 +56,13 @@ export class WorkflowRuntime {
 
     const errors = results.flatMap((result) => (result.status === "rejected" ? [result.reason] : []));
     if (errors.length > 0)
-      throw new AggregateError(errors, `Failed to dispatch ${event.name} to ${errors.length} workflow(s)`);
+      throw new AggregateError(errors, `Failed to dispatch ${name} to ${errors.length} workflow(s)`);
     return registrations.length;
   }
 
   async #admit(
     session: WorkflowSession,
-    event: WorkflowEvent,
+    event: IntegrationEvent,
     activate: ActivateWorkflow,
     context: Context,
   ): Promise<void> {
@@ -78,7 +72,12 @@ export class WorkflowRuntime {
       this.#durable.install(extension);
       const conversation = await openConversation(this.#durable.harness, this.#store, session, extension, context);
       const submission = await conversation.submit(
-        { type: "input", content: event.prompt, requestId: event.id, whenBusy: "steer" },
+        {
+          type: "input",
+          content: event.content,
+          requestId: JSON.stringify([event.integration, event.instance, event.id]),
+          whenBusy: "steer",
+        },
         context,
       );
       void suspendWorkspaceAfterSubmission(

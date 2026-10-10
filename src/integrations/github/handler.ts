@@ -43,17 +43,20 @@ export async function handleGitHubEvent(
 
   const route = getGitHubEventRoute(event);
   if (!route) return;
+  const installationId = event.payload.installation?.id;
+  if (!installationId) throw new Error("GitHub workflow event has no installation");
 
   let scope: Promise<GitHubActivationScope> | undefined;
   const activationScope = () => (scope ??= resolveActivationScope(options.github, event));
   const matches = await options.workflowRuntime.dispatch(
     {
-      id: `github:${event.deliveryId}`,
-      provider: "github",
-      repositoryId: String(event.payload.repository.id),
-      name: `github.${event.name}`,
+      integration: "github",
+      instance: String(installationId),
+      id: event.deliveryId,
+      name: event.name,
+      scope: String(event.payload.repository.id),
       subject: route.subject,
-      prompt: event.prompt,
+      content: event.prompt,
     },
     async (session, activationContext) =>
       activateGitHubWorkflow(options, session, await activationScope(), activationContext),

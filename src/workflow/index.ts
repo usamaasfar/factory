@@ -3,7 +3,7 @@ export {
   type WorkflowDefinition,
   workflowDefinitionSchema,
 } from "./definition.ts";
-export { type ActivateWorkflow, type WorkflowEvent, WorkflowRuntime } from "./runtime.ts";
+export { type ActivateWorkflow, WorkflowRuntime } from "./runtime.ts";
 export { SqliteWorkflowStore } from "./sqlite-store.ts";
 export type {
   CreateWorkflowSession,
