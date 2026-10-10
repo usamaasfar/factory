@@ -6,10 +6,12 @@ on:
   slack.message.groups:
 
 agent:
-  environment: base.linux
-  resources:
-    cpu: 2
-    memory: 4
+  sandbox:
+    provider: local
+    environment: base.linux
+    resources:
+      cpu: 2
+      memory: 4
 
   provider: openai
   model: gpt-5.6-sol
