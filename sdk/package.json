@@ -2,11 +2,11 @@
   "name": "factory-oss",
   "version": "0.1.0",
   "exports": {
-    "./integration": "./src/integration.ts",
+    "./integration": "./src/integration/index.ts",
     "./sandbox": "./src/sandbox/index.ts"
   },
   "files": [
-    "src/integration.ts",
+    "src/integration",
     "src/sandbox",
     "README.md"
   ],

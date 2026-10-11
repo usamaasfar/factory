@@ -12,6 +12,7 @@ export function createReadTool(client: WebClient, _ctx: IntegrationContext) {
       limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 15 })),
     }),
     replay: "safe",
+    access: "read",
     async execute({ channel, thread, cursor, limit }, _api, context) {
       try {
         context.abortSignal?.throwIfAborted();

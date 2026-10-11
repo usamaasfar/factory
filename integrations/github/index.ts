@@ -1,6 +1,6 @@
 import { createAppAuth } from "@octokit/auth-app";
 import { Octokit } from "@octokit/rest";
-import { defineIntegration } from "factory-oss/integration";
+import { defineIntegration, defineResource } from "factory-oss/integration";
 import { createIssueCommentEvents } from "./events/issue-comment.ts";
 import { createPullRequestEvents } from "./events/pull-request.ts";
 import { createPullTools } from "./tools/pulls.ts";
@@ -44,7 +44,10 @@ export const createGitHubIntegration = defineIntegration((options: GitHubOptions
   return {
     webhookUrl,
     events: [...Object.values(pullRequestEvents), ...Object.values(issueCommentEvents)],
-    tools: [...Object.values(pullTools), ...Object.values(reactionTools)],
+    resources: [
+      defineResource({ name: "pull_requests", tools: Object.values(pullTools) }),
+      defineResource({ name: "reactions", tools: Object.values(reactionTools) }),
+    ],
   };
 });
 

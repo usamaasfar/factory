@@ -1,5 +1,5 @@
 import { LinearClient } from "@linear/sdk";
-import { defineIntegration } from "factory-oss/integration";
+import { defineIntegration, defineResource } from "factory-oss/integration";
 import { createIssueEvents } from "./events/issue.ts";
 import { createCommentTools } from "./tools/comment.ts";
 import { createIssueTools } from "./tools/issue.ts";
@@ -24,7 +24,10 @@ export const createLinearIntegration = defineIntegration((options: LinearOptions
   return {
     webhookUrl,
     events: Object.values(issueEvents),
-    tools: [...Object.values(issueTools), ...Object.values(commentTools)],
+    resources: [
+      defineResource({ name: "issues", tools: Object.values(issueTools) }),
+      defineResource({ name: "comments", tools: Object.values(commentTools) }),
+    ],
   };
 });
 

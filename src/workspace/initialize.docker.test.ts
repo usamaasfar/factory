@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { type ExecutionEnv, getOrThrow } from "@earendil-works/pi-durable/env";
-import { createLocalDockerSandboxProvider } from "../../factory/sandbox/local.ts";
+import { createLocalDockerSandboxProvider } from "../../sandbox/index.ts";
 import { openDatabase } from "../database.ts";
 import { initializeCodingWorkspace, prepareCodingWorkspace } from "./initialize.ts";
 import { WorkspaceLifecycle } from "./lifecycle.ts";

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { BACKGROUND_CONTEXT, withAbortSignal } from "@earendil-works/chord/context";
 import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import { getOrThrow } from "@earendil-works/pi-durable/env";
-import { createLocalDockerSandboxProvider } from "./local.ts";
+import { createLocalDockerSandboxProvider } from "./index.ts";
 
 const IMAGE = process.env.FACTORY_SANDBOX_TEST_IMAGE ?? "factory-coding:test";
 const dockerTest = test.skipIf(!hasDockerImage(IMAGE));
