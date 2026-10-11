@@ -1,7 +1,7 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { createModels } from "@earendil-works/pi-ai/models";
 import { deepseekProvider } from "@earendil-works/pi-ai/providers/deepseek";
-import { createLocalDockerSandboxProvider } from "../factory/sandbox/index.ts";
+import { createLocalDockerSandboxProvider } from "../sandbox/index.ts";
 import { openDatabase } from "./database.ts";
 import { openDurable } from "./durable.ts";
 import { GitHubApp } from "./integrations/github/index.ts";

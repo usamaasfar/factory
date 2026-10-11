@@ -3,7 +3,8 @@
 One package with subpath exports. Integration primitives are available from
 `factory-oss/integration`, and sandbox primitives from `factory-oss/sandbox`.
 Workflow and workspace contracts will be developed later. Reference adapters
-live under [`factory`](../factory).
+live under [`integrations`](../integrations/README.md) and
+[`sandbox`](../sandbox/README.md).
 
 ## Shared setup and separate tools
 
@@ -188,7 +189,7 @@ cancels work started through that environment handle; it does not suspend or
 destroy provider resources.
 
 The local Docker reference provider lives in
-[`factory/sandbox`](../factory/sandbox/README.md). Other providers, such as Modal
+[`sandbox`](../sandbox/README.md). Other providers, such as Modal
 or E2B, can implement `SandboxProvider` without changing Factory or this SDK.
 
 ## Development

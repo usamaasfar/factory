@@ -1,7 +1,7 @@
 # Sandbox
 
 Factory's built-in sandbox providers implement the provider-neutral contracts
-from [`factory-oss/sandbox`](../../sdk/README.md#sandboxes). The workspace layer
+from [`factory-oss/sandbox`](../sdk/README.md#sandboxes). The workspace layer
 owns initialization, idle suspension, and retention policy; providers own
 compute, persistent storage, and command transport.
 
@@ -13,7 +13,7 @@ key and validates their `com.factory.sandbox` ownership labels before reuse or
 removal.
 
 ```ts
-import { createLocalDockerSandboxProvider } from "./local.ts";
+import { createLocalDockerSandboxProvider } from "./docker-local/index.ts";
 
 const provider = createLocalDockerSandboxProvider({
   image: "factory-coding:test",
@@ -47,11 +47,11 @@ bun run workspace:image
 
 ## Files
 
-- `local.ts` implements the local Docker provider.
-- `local.test.ts` verifies lifecycle, persistence, filesystem, shell, and
-  cancellation behavior through Pi's `ExecutionEnv`.
-- `coding.Dockerfile` defines the baseline image.
-- `index.ts` exports the provider.
+- `docker-local/index.ts` implements the local Docker provider.
+- `docker-local/index.test.ts` verifies lifecycle, persistence, filesystem,
+  shell, and cancellation behavior through Pi's `ExecutionEnv`.
+- `coding.Dockerfile` defines the shared baseline image.
+- `index.ts` exports the available providers.
 
 The Docker Cloud provider will be added separately after the local provider and
 shared SDK boundary are established.
