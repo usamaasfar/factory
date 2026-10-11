@@ -35,6 +35,7 @@ export function createReactionTools(github: Octokit, _ctx: IntegrationContext) {
       description: "Add a reaction to a GitHub pull request or pull request comment.",
       parameters: Type.Object({ owner, repository, target, reaction }),
       replay: "unsafe",
+      access: "write",
       execute: async ({ owner, repository, target, reaction }, _api, context) => {
         const subject =
           target.type === "pull_request"
@@ -84,6 +85,7 @@ export function createReactionTools(github: Octokit, _ctx: IntegrationContext) {
         reactionId: Type.Number({ description: "Reaction ID." }),
       }),
       replay: "unsafe",
+      access: "write",
       execute: async ({ owner, repository, target, reactionId }, _api, context) => {
         const subject =
           target.type === "pull_request"
@@ -135,6 +137,7 @@ export function createReactionTools(github: Octokit, _ctx: IntegrationContext) {
         perPage: Type.Optional(Type.Number({ description: "Results per page, up to 100." })),
       }),
       replay: "safe",
+      access: "read",
       execute: async ({ owner, repository, target, reaction, page, perPage }, _api, context) => {
         const subject =
           target.type === "pull_request"

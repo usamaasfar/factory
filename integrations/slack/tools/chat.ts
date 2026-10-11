@@ -11,6 +11,7 @@ export function createReplyTool(client: WebClient, _ctx: IntegrationContext) {
       text: Type.String({ minLength: 1, maxLength: 4000 }),
     }),
     replay: "unsafe",
+    access: "write",
     async execute({ channel, thread, text }, _api, context) {
       try {
         context.abortSignal?.throwIfAborted();

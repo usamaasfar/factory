@@ -11,6 +11,7 @@ export function createCommentTools(client: LinearClient, _ctx: IntegrationContex
         body: Type.String({ minLength: 1 }),
       }),
       replay: "unsafe",
+      access: "write",
       async execute({ issueId, body }, _api, context) {
         try {
           context.abortSignal?.throwIfAborted();

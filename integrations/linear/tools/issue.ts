@@ -18,6 +18,7 @@ export function createIssueTools(client: LinearClient, _ctx: IntegrationContext)
         limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, description: "Comments to return." })),
       }),
       replay: "safe",
+      access: "read",
       async execute({ issueId, cursor, limit }, _api, context) {
         try {
           context.abortSignal?.throwIfAborted();
@@ -74,6 +75,7 @@ export function createIssueTools(client: LinearClient, _ctx: IntegrationContext)
         limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 50 })),
       }),
       replay: "safe",
+      access: "read",
       async execute({ query, teamId, cursor, limit }, _api, context) {
         try {
           context.abortSignal?.throwIfAborted();
@@ -108,6 +110,7 @@ export function createIssueTools(client: LinearClient, _ctx: IntegrationContext)
         issueId: Type.String({ minLength: 1, description: "Issue UUID or identifier." }),
       }),
       replay: "safe",
+      access: "read",
       async execute({ issueId }, _api, context) {
         try {
           context.abortSignal?.throwIfAborted();
@@ -151,6 +154,7 @@ export function createIssueTools(client: LinearClient, _ctx: IntegrationContext)
         removeLabelIds: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { minItems: 1 })),
       }),
       replay: "unsafe",
+      access: "write",
       async execute({ issueId, priority, stateId, assigneeId, addLabelIds, removeLabelIds }, _api, context) {
         const input: IssueUpdateInput = {
           priority,

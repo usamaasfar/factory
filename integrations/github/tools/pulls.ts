@@ -13,6 +13,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
       description: "Check whether a GitHub pull request has been merged.",
       parameters: Type.Object({ owner, repository, pullRequest }),
       replay: "safe",
+      access: "read",
       execute: async ({ owner, repository, pullRequest }, _api, context) => {
         try {
           const parameters = {
@@ -55,6 +56,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
         ),
       }),
       replay: "unsafe",
+      access: "write",
       execute: async ({ owner, repository, title, head, base, body, draft, maintainerCanModify }, _api, context) => {
         try {
           const response = await github.rest.pulls.create({
@@ -88,6 +90,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
         body: Type.String({ description: "Comment in GitHub-flavored Markdown." }),
       }),
       replay: "unsafe",
+      access: "write",
       execute: async ({ owner, repository, pullRequest, body }, _api, context) => {
         try {
           const response = await github.rest.issues.createComment({
@@ -120,6 +123,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
         body: Type.String({ description: "Reply in GitHub-flavored Markdown." }),
       }),
       replay: "unsafe",
+      access: "write",
       execute: async ({ owner, repository, pullRequest, comment, body }, _api, context) => {
         try {
           const response = await github.rest.pulls.createReplyForReviewComment({
@@ -164,6 +168,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
         ),
       }),
       replay: "unsafe",
+      access: "write",
       execute: async ({ owner, repository, pullRequest, commit, body, event, comments }, _api, context) => {
         try {
           const response = await github.rest.pulls.createReview({
@@ -203,6 +208,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
         subjectType: Type.Optional(Type.Union([Type.Literal("line"), Type.Literal("file")])),
       }),
       replay: "unsafe",
+      access: "write",
       execute: async (
         { owner, repository, pullRequest, body, commit, path, line, side, startLine, startSide, subjectType },
         _api,
@@ -238,6 +244,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
       description: "Delete a pending GitHub pull request review.",
       parameters: Type.Object({ owner, repository, pullRequest, review }),
       replay: "unsafe",
+      access: "write",
       execute: async ({ owner, repository, pullRequest, review }, _api, context) => {
         try {
           await github.rest.pulls.deletePendingReview({
@@ -262,6 +269,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
       description: "Delete a GitHub pull request review comment.",
       parameters: Type.Object({ owner, repository, comment: Type.Number({ description: "Review comment ID." }) }),
       replay: "unsafe",
+      access: "write",
       execute: async ({ owner, repository, comment }, _api, context) => {
         try {
           await github.rest.pulls.deleteReviewComment({
@@ -285,6 +293,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
       description: "Get a GitHub pull request.",
       parameters: Type.Object({ owner, repository, pullRequest }),
       replay: "safe",
+      access: "read",
       execute: async ({ owner, repository, pullRequest }, _api, context) => {
         try {
           const { data } = await github.rest.pulls.get({
@@ -316,6 +325,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
         perPage: Type.Optional(Type.Number()),
       }),
       replay: "safe",
+      access: "read",
       execute: async ({ owner, repository, state, head, base, page, perPage }, _api, context) => {
         try {
           const { data } = await github.rest.pulls.list({
@@ -355,6 +365,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
         maintainerCanModify: Type.Optional(Type.Boolean()),
       }),
       replay: "unsafe",
+      access: "write",
       execute: async (
         { owner, repository, pullRequest, title, body, state, base, maintainerCanModify },
         _api,
@@ -393,6 +404,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
         perPage: Type.Optional(Type.Number()),
       }),
       replay: "safe",
+      access: "read",
       execute: async ({ owner, repository, pullRequest, page, perPage }, _api, context) => {
         try {
           const { data } = await github.rest.pulls.listCommits({
@@ -427,6 +439,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
         perPage: Type.Optional(Type.Number()),
       }),
       replay: "safe",
+      access: "read",
       execute: async ({ owner, repository, pullRequest, page, perPage }, _api, context) => {
         try {
           const { data } = await github.rest.pulls.listFiles({
@@ -460,6 +473,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
       description: "Get a pull request review.",
       parameters: Type.Object({ owner, repository, pullRequest, review }),
       replay: "safe",
+      access: "read",
       execute: async ({ owner, repository, pullRequest, review }, _api, context) => {
         try {
           const { data } = await github.rest.pulls.getReview({
@@ -490,6 +504,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
         perPage: Type.Optional(Type.Number()),
       }),
       replay: "safe",
+      access: "read",
       execute: async ({ owner, repository, pullRequest, page, perPage }, _api, context) => {
         try {
           const { data } = await github.rest.pulls.listReviews({
@@ -525,6 +540,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
         event: Type.Union([Type.Literal("APPROVE"), Type.Literal("REQUEST_CHANGES"), Type.Literal("COMMENT")]),
       }),
       replay: "unsafe",
+      access: "write",
       execute: async ({ owner, repository, pullRequest, review, body, event }, _api, context) => {
         try {
           const response = await github.rest.pulls.submitReview({
@@ -551,6 +567,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
       description: "Update the summary of a pending pull request review.",
       parameters: Type.Object({ owner, repository, pullRequest, review, body: Type.String() }),
       replay: "unsafe",
+      access: "write",
       execute: async ({ owner, repository, pullRequest, review, body }, _api, context) => {
         try {
           const response = await github.rest.pulls.updateReview({
@@ -576,6 +593,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
       description: "Get a pull request review comment.",
       parameters: Type.Object({ owner, repository, comment: Type.Number({ description: "Review comment ID." }) }),
       replay: "safe",
+      access: "read",
       execute: async ({ owner, repository, comment }, _api, context) => {
         try {
           const { data } = await github.rest.pulls.getReviewComment({
@@ -607,6 +625,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
         perPage: Type.Optional(Type.Number()),
       }),
       replay: "safe",
+      access: "read",
       execute: async ({ owner, repository, pullRequest, page, perPage }, _api, context) => {
         try {
           const { data } = await github.rest.pulls.listReviewComments({
@@ -639,6 +658,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
         perPage: Type.Optional(Type.Number()),
       }),
       replay: "safe",
+      access: "read",
       execute: async ({ owner, repository, pullRequest, review, page, perPage }, _api, context) => {
         try {
           const { data } = await github.rest.pulls.listCommentsForReview({
@@ -672,6 +692,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
         body: Type.String(),
       }),
       replay: "unsafe",
+      access: "write",
       execute: async ({ owner, repository, comment, body }, _api, context) => {
         try {
           const response = await github.rest.pulls.updateReviewComment({
@@ -696,6 +717,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
       description: "List requested reviewers for a pull request.",
       parameters: Type.Object({ owner, repository, pullRequest }),
       replay: "safe",
+      access: "read",
       execute: async ({ owner, repository, pullRequest }, _api, context) => {
         try {
           const { data } = await github.rest.pulls.listRequestedReviewers({
@@ -729,6 +751,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
         teamReviewers: Type.Optional(Type.Array(Type.String())),
       }),
       replay: "unsafe",
+      access: "write",
       execute: async ({ owner, repository, pullRequest, reviewers, teamReviewers }, _api, context) => {
         try {
           await github.rest.pulls.requestReviewers({
@@ -760,6 +783,7 @@ export function createPullTools(github: Octokit, _ctx: IntegrationContext) {
         teamReviewers: Type.Optional(Type.Array(Type.String())),
       }),
       replay: "unsafe",
+      access: "write",
       execute: async ({ owner, repository, pullRequest, reviewers, teamReviewers }, _api, context) => {
         try {
           await github.rest.pulls.removeRequestedReviewers({
