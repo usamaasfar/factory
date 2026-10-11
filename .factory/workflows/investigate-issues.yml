@@ -5,13 +5,20 @@ on:
   github.issues.reopened:
   github.issue_comment.created:
 
+permissions:
+  github:
+    contents: write
+    issues: write
+    pull_requests: write
+
+sandbox:
+  provider: local
+  environment: base.linux
+  resources:
+    cpu: 2
+    memory: 4
+
 agent:
-  sandbox:
-    provider: local
-    environment: base.linux
-    resources:
-      cpu: 2
-      memory: 4
   provider: openai
   model: gpt-5.6-sol
   instructions: |
