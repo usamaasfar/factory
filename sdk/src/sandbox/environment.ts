@@ -32,7 +32,7 @@ import type {
   SandboxCommandOutput,
   SandboxCommandResult,
   SandboxCommandRunner,
-} from "./index.ts";
+} from "./command.ts";
 
 const MAX_TIMEOUT_MS = 2_147_483_647;
 const STATUS = {
