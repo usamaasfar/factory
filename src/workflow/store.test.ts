@@ -101,7 +101,7 @@ describe("workflow sessions", () => {
   const input = {
     workflowId: 1,
     subjects: ["github:repository:123:pull_request:42", "linear:issue:abc123"],
-    conversationId: "conversation-1",
+    conversationId: 1,
     definition: parseWorkflowDefinition(workflow("Review", "github.pull_request.opened")),
   };
 
@@ -117,7 +117,7 @@ describe("workflow sessions", () => {
     expect(sessions.list()).toEqual([]);
 
     const first = sessions.create(input);
-    const second = sessions.create({ ...input, conversationId: "conversation-2" });
+    const second = sessions.create({ ...input, conversationId: 2 });
 
     expect(sessions.list()).toEqual([first, second]);
   });

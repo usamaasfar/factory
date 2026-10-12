@@ -14,6 +14,27 @@ subsequent events.
 - An event is delivered only once per session, even if it also matches `on`.
 - Permissions control tool access, not event routing.
 
+## Flow
+
+```text
+Event
+  |
+  +--> Matching sessions ----------------------+
+  |                                           |
+  +--> Workflows matching `on`                 |
+         |                                    |
+         +--> Session already matched? Skip    |
+         |                                    |
+         +--> Create conversation              |
+                |                             |
+                +--> Save session ------------+
+                                              |
+                                              v
+                                    Return session IDs
+```
+
+Content delivery happens after routing, using the returned session IDs.
+
 ## Subjects
 
 Integrations provide consistently namespaced subjects, ordered from parent to

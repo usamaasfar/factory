@@ -14,7 +14,7 @@ export const workflowSessions = sqliteTable("workflow_sessions", {
   id: integer().primaryKey({ autoIncrement: true }),
   workflowId: integer("workflow_id").notNull(),
   subjects: text({ mode: "json" }).$type<string[]>().notNull(),
-  conversationId: text("conversation_id").notNull().unique(),
+  conversationId: integer("conversation_id").notNull().unique(),
   definition: text({ mode: "json" }).$type<WorkflowDefinition>().notNull(),
 });
 
