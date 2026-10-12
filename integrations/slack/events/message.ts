@@ -26,6 +26,12 @@ type MessageEvent = {
   bot_id?: string;
 };
 
+function messageSubject(teamId: string, event: { channel: string; ts: string; thread_ts?: string }): string {
+  const thread = event.thread_ts ?? event.ts;
+  const reply = event.ts !== thread ? `:reply:${event.ts}` : "";
+  return `workspace:${teamId}:channel:${event.channel}:thread:${thread}${reply}`;
+}
+
 export function createMessageEvents(_ctx: IntegrationContext) {
   return {
     appMention: defineEvent<SlackEventCallback<AppMentionEvent>>({
@@ -35,7 +41,7 @@ export function createMessageEvents(_ctx: IntegrationContext) {
         const { event } = payload;
         const thread = event.thread_ts ?? event.ts;
         return {
-          subject: `workspace:${payload.team_id}:channel:${event.channel}:thread:${thread}`,
+          subject: messageSubject(payload.team_id, event),
           content: `Slack user ${event.user} mentioned the app in channel ${event.channel}, thread ${thread}: ${event.text}`,
         };
       },
@@ -48,7 +54,7 @@ export function createMessageEvents(_ctx: IntegrationContext) {
         const { event } = payload;
         if (!event.thread_ts || !event.user || event.bot_id || event.subtype) return undefined;
         return {
-          subject: `workspace:${payload.team_id}:channel:${event.channel}:thread:${event.thread_ts}`,
+          subject: messageSubject(payload.team_id, event),
           content: `Slack user ${event.user} replied in channel ${event.channel}, thread ${event.thread_ts}: ${event.text ?? ""}`,
         };
       },
@@ -61,7 +67,7 @@ export function createMessageEvents(_ctx: IntegrationContext) {
         const { event } = payload;
         if (!event.thread_ts || !event.user || event.bot_id || event.subtype) return undefined;
         return {
-          subject: `workspace:${payload.team_id}:channel:${event.channel}:thread:${event.thread_ts}`,
+          subject: messageSubject(payload.team_id, event),
           content: `Slack user ${event.user} replied in channel ${event.channel}, thread ${event.thread_ts}: ${event.text ?? ""}`,
         };
       },

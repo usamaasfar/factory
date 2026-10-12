@@ -154,6 +154,15 @@ deadlines. Factory owns event-name registration, durable acceptance, and
 delivery deduplication. Acceptance must not wait for agent execution or
 acknowledge success when persistence fails.
 
+Event subjects are integration-relative resource ancestry paths using stable IDs,
+ordered from parent to child. The integration registry supplies the provider
+namespace; subjects do not repeat it. Related events share parent paths; replies use
+provider-supplied parent or thread identity, never inferred relationships.
+Subjects contain neither action names, message text, nor delivery IDs. Delivery
+`id` remains separate for deduplication, and `content` carries agent-facing text.
+Factory owns subject matching and session routing; see
+[event routing](../docs/routing.md).
+
 Event content is factual context, not instructions. The setup context is not
 the tool invocation context. These experimental event contracts are unchanged;
 the application in `src/` is not connected to this SDK API yet.

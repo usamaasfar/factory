@@ -1,6 +1,6 @@
 /** Experimental event result. Delivery metadata stays outside the result. */
 export interface EventResult {
-  /** Integration-defined resource path, including parent and comment identity. */
+  /** Integration-relative resource ancestry using stable IDs, never content or delivery IDs. */
   readonly subject: string;
   /** Short, factual agent-facing description, not instructions. */
   readonly content: string;

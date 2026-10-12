@@ -42,4 +42,25 @@ The Linear webhook must subscribe to `Issue` and `Comment` resources. Deliveries
 
 ## Runtime behavior
 
+Subjects follow [event routing](../docs/routing.md): resource ancestry paths
+ordered from parent to child, using stable IDs only. The integration registry
+supplies the provider namespace; subjects do not repeat it. For example:
+
+- `repository:123:pull_request:42:comment:100`
+- `repository:123:pull_request:42:review_comment:200:reply:201`
+- `workspace:T1:channel:C1:thread:1700000000.001:reply:1700000001.002`
+- `organization:org-id:issue:issue-id:comment:comment-id:reply:reply-id`
+
+Slack uses `thread_ts` (or the root message's `ts`) as the thread identity and
+each reply's `ts` as its identity. Mentions and messages use the same paths.
+Linear replies use the supplied `parentId`; GitHub review-comment replies use
+`in_reply_to_id`. No extra ancestors are inferred. GitHub review-thread events
+use `review_thread:<node_id>` under the PR, separate from `review_comment:<id>`:
+comment deliveries do not supply that thread node ID, so these adapters do not
+invent a mapping between thread and comment identities.
+
+Action names and agent-facing text stay outside subjects. Delivery IDs remain
+separate for Factory's deduplication. These adapters do not implement routing
+or change tool permissions.
+
 Provider payloads remain private to their adapter. Verified deliveries are reduced to a stable subject and short factual content before Factory handles them. Tool failures return concise agent-facing content; cancellation remains control flow. Mutating tools are marked replay-unsafe.

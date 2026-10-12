@@ -70,6 +70,9 @@ export function createLinearWebhookHandler(options: LinearWebhookOptions, ctx: I
         Array.isArray(comment.data) ||
         typeof comment.data.id !== "string" ||
         typeof comment.data.body !== "string" ||
+        (comment.data.parentId !== undefined &&
+          comment.data.parentId !== null &&
+          typeof comment.data.parentId !== "string") ||
         (comment.data.issueId !== undefined &&
           comment.data.issueId !== null &&
           typeof comment.data.issueId !== "string")
