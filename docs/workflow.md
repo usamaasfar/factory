@@ -24,6 +24,7 @@ sandbox:
   resources:
     cpu: 2
     memory: 4
+    volume: 20
 
 agent:
   provider: openai
@@ -45,6 +46,9 @@ agent:
 
 Unknown fields and unsupported events are errors. Without a sandbox, no
 filesystem or shell tools are available.
+
+Sandbox `resources` use integers: `cpu` is the number of cores; `memory` and
+`volume` are capacities in GiB.
 
 ## Permissions
 

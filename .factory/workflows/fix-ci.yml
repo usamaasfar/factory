@@ -16,6 +16,7 @@ sandbox:
   resources:
     cpu: 2
     memory: 4
+    volume: 20
 
 agent:
   provider: openai

@@ -18,6 +18,7 @@ sandbox:
 
 agent:
   provider: openai
+    volume: 20
   model: gpt-5.6-sol
   instructions: |
     Own the review of this pull request as it evolves.
