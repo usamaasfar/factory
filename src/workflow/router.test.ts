@@ -25,7 +25,9 @@ const event = {
 };
 
 beforeAll(() => {
-  for (const statement of statements) database.$client.run(statement);
+  for (const statement of statements) {
+    database.$client.run(statement.replace(/^CREATE (TABLE|UNIQUE INDEX) /, "CREATE $1 IF NOT EXISTS "));
+  }
 });
 
 beforeEach(() => {
