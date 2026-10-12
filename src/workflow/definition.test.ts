@@ -3,11 +3,9 @@ import { parseWorkflowDefinition } from "./definition.ts";
 
 const source = `
 name: Review pull requests
-
 on:
   github.pull_request.opened:
   github.pull_request.synchronize:
-
 permissions:
   github:
     contents: read
@@ -15,7 +13,6 @@ permissions:
   slack:
     conversations: read
     chat: write
-
 sandbox:
   provider: provider-name
   environment: base.linux
@@ -23,7 +20,6 @@ sandbox:
     cpu: 2
     memory: 4
     volume: 20
-
 agent:
   provider: provider-name
   model: model-name

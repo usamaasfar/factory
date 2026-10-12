@@ -22,6 +22,8 @@ const workflowDefinition = z.strictObject({
   }),
 });
 
-export function parseWorkflowDefinition(workflow: string): z.infer<typeof workflowDefinition> {
+export type WorkflowDefinition = z.infer<typeof workflowDefinition>;
+
+export function parseWorkflowDefinition(workflow: string): WorkflowDefinition {
   return workflowDefinition.parse(Bun.YAML.parse(workflow));
 }
