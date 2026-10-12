@@ -8,6 +8,9 @@ permissions:
   github:
     contents: read
     pull_requests: write
+  slack:
+    conversations: read
+    chat: write
 
 sandbox:
   provider: local
@@ -15,10 +18,10 @@ sandbox:
   resources:
     cpu: 2
     memory: 4
+    volume: 20
 
 agent:
   provider: openai
-    volume: 20
   model: gpt-5.6-sol
   instructions: |
     Own the review of this pull request as it evolves.
