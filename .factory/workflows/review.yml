@@ -8,6 +8,9 @@ permissions:
   github:
     contents: read
     pull_requests: write
+  slack:
+    conversations: read
+    chat: write
 
 sandbox:
   provider: local
@@ -15,6 +18,7 @@ sandbox:
   resources:
     cpu: 2
     memory: 4
+    volume: 20
 
 agent:
   provider: openai

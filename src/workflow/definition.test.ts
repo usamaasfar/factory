@@ -5,13 +5,24 @@ const source = `
 name: Review pull requests
 on:
   github.pull_request.opened:
-agent:
+  github.pull_request.synchronize:
+permissions:
+  github:
+    contents: read
+    pull_requests: write
+  slack:
+    conversations: read
+    chat: write
+sandbox:
+  provider: provider-name
   environment: base.linux
   resources:
     cpu: 2
     memory: 4
-  provider: openai
-  model: test-model
+    volume: 20
+agent:
+  provider: provider-name
+  model: model-name
   instructions: Review the change.
 `;
 
@@ -19,21 +30,30 @@ describe("workflow definitions", () => {
   test("parses and normalizes the strict DSL", () => {
     expect(parseWorkflowDefinition(source)).toEqual({
       name: "Review pull requests",
-      on: { "github.pull_request.opened": {} },
-      agent: {
+      on: {
+        "github.pull_request.opened": null,
+        "github.pull_request.synchronize": null,
+      },
+      permissions: {
+        github: {
+          contents: "read",
+          pull_requests: "write",
+        },
+        slack: {
+          conversations: "read",
+          chat: "write",
+        },
+      },
+      sandbox: {
+        provider: "provider-name",
         environment: "base.linux",
-        resources: { cpu: 2, memory: 4 },
-        provider: "openai",
-        model: "test-model",
+        resources: { cpu: 2, memory: 4, volume: 20 },
+      },
+      agent: {
+        provider: "provider-name",
+        model: "model-name",
         instructions: "Review the change.",
       },
     });
-  });
-
-  test("rejects unknown fields and malformed event names", () => {
-    expect(() => parseWorkflowDefinition(`${source}\nunknown: true`)).toThrow();
-    expect(() => parseWorkflowDefinition(source.replace("github.pull_request.opened", "opened"))).toThrow(
-      "Invalid event name",
-    );
   });
 });

@@ -42,6 +42,7 @@ export const createGitHubIntegration = defineIntegration((options: GitHubOptions
   );
 
   return {
+    name: "github",
     webhookUrl,
     events: [...Object.values(pullRequestEvents), ...Object.values(issueCommentEvents)],
     resources: [

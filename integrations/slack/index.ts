@@ -24,6 +24,7 @@ export const createSlackIntegration = defineIntegration((options: SlackOptions, 
   );
 
   return {
+    name: "slack",
     webhookUrl,
     events: Object.values(messageEvents),
     resources: [

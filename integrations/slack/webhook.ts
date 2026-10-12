@@ -74,7 +74,8 @@ export function createSlackWebhookHandler(options: SlackWebhookOptions, ctx: Int
         typeof event.user !== "string" ||
         typeof event.text !== "string" ||
         typeof event.channel !== "string" ||
-        typeof event.ts !== "string"
+        typeof event.ts !== "string" ||
+        (event.thread_ts !== undefined && typeof event.thread_ts !== "string")
       ) {
         return new Response("Invalid Slack event", { status: 400 });
       }

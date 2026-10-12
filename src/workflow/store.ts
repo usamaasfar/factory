@@ -1,74 +1,76 @@
-import type { Context } from "@earendil-works/chord";
-import type { WorkflowDefinition } from "./definition.ts";
+import { eq } from "drizzle-orm";
+import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { database } from "../database.ts";
+import { parseWorkflowDefinition, type WorkflowDefinition } from "./definition.ts";
 
-/** A repository whose trusted workflow snapshot has been registered. */
-export interface WorkflowRepository {
-  readonly provider: string;
-  readonly providerId: string;
+export const workflows = sqliteTable("workflows", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  source: text().notNull(),
+  definition: text({ mode: "json" }).$type<WorkflowDefinition>().notNull(),
+});
+
+export const workflowSessions = sqliteTable("workflow_sessions", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  workflowId: integer("workflow_id").notNull(),
+  subjects: text({ mode: "json" }).$type<string[]>().notNull(),
+  conversationId: integer("conversation_id").notNull().unique(),
+  definition: text({ mode: "json" }).$type<WorkflowDefinition>().notNull(),
+});
+
+export type WorkflowSession = typeof workflowSessions.$inferSelect;
+
+export function createWorkflowStore<TSchema extends Record<string, unknown>>(database: BunSQLiteDatabase<TSchema>) {
+  return {
+    register(sources: readonly string[]): void {
+      // Validate everything before touching the current registry.
+      const rows = sources.map((source) => ({ source, definition: parseWorkflowDefinition(source) }));
+
+      database.transaction((transaction) => {
+        transaction.delete(workflows).run();
+        if (rows.length > 0) transaction.insert(workflows).values(rows).run();
+      });
+    },
+
+    findByEvent(event: string): number[] {
+      return database
+        .select({
+          id: workflows.id,
+          definition: workflows.definition,
+        })
+        .from(workflows)
+        .all()
+        .filter(({ definition }) => Object.hasOwn(definition.on, event))
+        .map(({ id }) => id);
+    },
+
+    getDefinition(id: number): WorkflowDefinition | undefined {
+      return database.select({ definition: workflows.definition }).from(workflows).where(eq(workflows.id, id)).get()
+        ?.definition;
+    },
+  };
 }
 
-export interface WorkflowSource {
-  readonly path: string;
-  readonly source: string;
-  readonly definition: WorkflowDefinition;
+export function createWorkflowSessionStore<TSchema extends Record<string, unknown>>(
+  database: BunSQLiteDatabase<TSchema>,
+) {
+  return {
+    create(session: Omit<WorkflowSession, "id">): WorkflowSession {
+      return database.insert(workflowSessions).values(session).returning().get();
+    },
+
+    get(id: number): WorkflowSession | undefined {
+      return database.select().from(workflowSessions).where(eq(workflowSessions.id, id)).get();
+    },
+
+    list(): WorkflowSession[] {
+      return database.select().from(workflowSessions).orderBy(workflowSessions.id).all();
+    },
+  };
 }
 
-/** One complete, validated repository snapshot. */
-export interface WorkflowSnapshot {
-  readonly repository: WorkflowRepository;
-  readonly revision: string;
-  readonly workflows: readonly WorkflowSource[];
-}
+export const workflow = createWorkflowStore(database);
+export const workflowSession = createWorkflowSessionStore(database);
 
-/** A registered workflow selected for an incoming event. */
-export interface WorkflowRegistration {
-  readonly repositoryId: number;
-  readonly path: string;
-  readonly revision: string;
-  readonly definition: WorkflowDefinition;
-}
-
-export interface WorkflowSubscription {
-  readonly provider: string;
-  readonly repositoryId: string;
-  readonly event: string;
-}
-
-export interface WorkflowRoute {
-  readonly provider: string;
-  readonly subject: string;
-}
-
-/** Durable execution identity for one workflow and external subject. */
-export interface WorkflowSession {
-  readonly id: string;
-  readonly repositoryId: number;
-  readonly workflowPath: string;
-  readonly workflowRevision: string;
-  readonly workflowDefinition: WorkflowDefinition;
-  readonly originProvider: string;
-  readonly originSubject: string;
-  readonly conversationId: string | null;
-}
-
-export interface CreateWorkflowSession {
-  readonly registration: WorkflowRegistration;
-  readonly origin: WorkflowRoute;
-}
-
-/** Atomic persistence boundary for workflow registration and execution identity. */
-export interface WorkflowStore {
-  /** Replaces all registrations for a repository with one validated snapshot. */
-  replaceSnapshot(snapshot: WorkflowSnapshot, context: Context): Promise<void>;
-  findRegistrations(subscription: WorkflowSubscription, context: Context): Promise<WorkflowRegistration[]>;
-  /** Finds the stable session for a registration and subject, creating it when absent. */
-  findOrCreateSession(
-    options: CreateWorkflowSession,
-    context: Context,
-  ): Promise<{ session: WorkflowSession; created: boolean }>;
-  /** Attaches the first conversation and returns the winning conversation ID. */
-  assignConversation(sessionId: string, conversationId: string, context: Context): Promise<string>;
-  findSessionByConversation(conversationId: string, context: Context): Promise<WorkflowSession | undefined>;
-  addRoute(sessionId: string, route: WorkflowRoute, context: Context): Promise<void>;
-  findSessionsByRoute(route: WorkflowRoute, context: Context): Promise<WorkflowSession[]>;
-}
+export type WorkflowStore = ReturnType<typeof createWorkflowStore>;
+export type WorkflowSessionStore = ReturnType<typeof createWorkflowSessionStore>;

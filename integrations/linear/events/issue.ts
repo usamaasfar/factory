@@ -41,8 +41,10 @@ export function createIssueEvents(_ctx: IntegrationContext) {
         if (!data.issueId) return undefined;
 
         const issue = data.issue?.identifier ?? data.issueId;
+        const parentCommentId = data.parentId ?? data.id;
+        const reply = data.parentId ? `:reply:${data.id}` : "";
         return {
-          subject: `organization:${payload.organizationId}:issue:${data.issueId}`,
+          subject: `organization:${payload.organizationId}:issue:${data.issueId}:comment:${parentCommentId}${reply}`,
           content: `${actorName(payload.actor)} commented on ${issue}: ${data.body}`,
         };
       },
