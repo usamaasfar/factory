@@ -1,6 +1,12 @@
 import { BACKGROUND_CONTEXT } from "@earendil-works/chord/context";
 import { createModels } from "@earendil-works/pi-ai/models";
-import { type ConversationId, createRegistry, Harness, MemoryStorage } from "@earendil-works/pi-durable";
+import {
+  type ConversationId,
+  createRegistry,
+  Harness,
+  MemoryStorage,
+  type SubmissionId,
+} from "@earendil-works/pi-durable";
 import type { WorkflowDefinition } from "./workflow/definition.ts";
 
 export const models = createModels();
@@ -32,4 +38,15 @@ export async function createConversation(definition: WorkflowDefinition): Promis
   );
 
   return conversation.id;
+}
+
+export async function submitInput(
+  conversationId: number,
+  input: { content: string; requestId: string },
+): Promise<SubmissionId> {
+  const conversation = await harness.conversation(conversationId as ConversationId, BACKGROUND_CONTEXT);
+  if (!conversation) throw new Error(`Conversation ${conversationId} not found`);
+
+  const submission = await conversation.submit({ type: "input", ...input, whenBusy: "steer" }, BACKGROUND_CONTEXT);
+  return submission.id;
 }
