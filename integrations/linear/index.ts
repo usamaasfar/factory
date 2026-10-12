@@ -22,6 +22,7 @@ export const createLinearIntegration = defineIntegration((options: LinearOptions
   );
 
   return {
+    name: "linear",
     webhookUrl,
     events: Object.values(issueEvents),
     resources: [
