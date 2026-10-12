@@ -1,13 +1,24 @@
 import { eq } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { database } from "../database.ts";
 import { parseWorkflowDefinition, type WorkflowDefinition } from "./definition.ts";
 
 export const workflows = sqliteTable("workflows", {
   id: integer().primaryKey({ autoIncrement: true }),
   source: text().notNull(),
-  definition: text("definition", { mode: "json" }).$type<WorkflowDefinition>().notNull(),
+  definition: text({ mode: "json" }).$type<WorkflowDefinition>().notNull(),
 });
+
+export const workflowSessions = sqliteTable("workflow_sessions", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  workflowId: integer("workflow_id").notNull(),
+  subjects: text({ mode: "json" }).$type<string[]>().notNull(),
+  conversationId: text("conversation_id").notNull().unique(),
+  definition: text({ mode: "json" }).$type<WorkflowDefinition>().notNull(),
+});
+
+export type WorkflowSession = typeof workflowSessions.$inferSelect;
 
 export function createWorkflowStore<TSchema extends Record<string, unknown>>(database: BunSQLiteDatabase<TSchema>) {
   return {
@@ -40,4 +51,26 @@ export function createWorkflowStore<TSchema extends Record<string, unknown>>(dat
   };
 }
 
+export function createWorkflowSessionStore<TSchema extends Record<string, unknown>>(
+  database: BunSQLiteDatabase<TSchema>,
+) {
+  return {
+    create(session: Omit<WorkflowSession, "id">): WorkflowSession {
+      return database.insert(workflowSessions).values(session).returning().get();
+    },
+
+    get(id: number): WorkflowSession | undefined {
+      return database.select().from(workflowSessions).where(eq(workflowSessions.id, id)).get();
+    },
+
+    list(): WorkflowSession[] {
+      return database.select().from(workflowSessions).orderBy(workflowSessions.id).all();
+    },
+  };
+}
+
+export const workflow = createWorkflowStore(database);
+export const workflowSession = createWorkflowSessionStore(database);
+
 export type WorkflowStore = ReturnType<typeof createWorkflowStore>;
+export type WorkflowSessionStore = ReturnType<typeof createWorkflowSessionStore>;
