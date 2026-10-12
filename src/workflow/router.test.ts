@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { generateSQLiteDrizzleJson, generateSQLiteMigration } from "drizzle-kit/api";
 import { database } from "../database.ts";
-import { workflowRouter } from "./routing.ts";
+import { workflowRouter } from "./router.ts";
 import { workflow, workflowSession, workflowSessions, workflows } from "./store.ts";
 
 const statements = await generateSQLiteMigration(

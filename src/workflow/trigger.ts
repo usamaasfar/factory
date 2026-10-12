@@ -1,5 +1,5 @@
 import { submitInput } from "../durable.ts";
-import { workflowRouter } from "./routing.ts";
+import { workflowRouter } from "./router.ts";
 import { workflowSession } from "./store.ts";
 
 export async function workflowTrigger(event: { id: string; name: string; subject: string; content: string }) {
