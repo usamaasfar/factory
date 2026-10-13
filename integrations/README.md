@@ -1,6 +1,18 @@
 # Integrations
 
-Experimental provider adapters built on `factory-oss/integration`. Each adapter creates one authenticated client, registers verified webhook events, and exposes provider-specific tools. They are not connected to the legacy runtime under `src/`.
+Provider adapters built on `factory-oss/integration`. Each adapter creates an
+authenticated client, registers a webhook handler, and returns event definitions
+and tool resources.
+
+Enable built-ins or trusted custom modules through `.factory/integrations.ts`;
+see [configuration and startup](../docs/extensibility.md#configuration-and-startup).
+Nothing is enabled by default. The API dispatches raw requests at
+`POST /webhook/:integration` to the registered handler. Resolved events reach
+workflow routing and Durable submission through the startup callback.
+
+Tool resources are retained but not installed or granted to conversations yet.
+Startup also still needs workflow loading, table initialization, and model
+provider setup before it can execute workflows.
 
 ## GitHub
 

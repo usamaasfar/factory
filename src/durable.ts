@@ -26,10 +26,7 @@ export async function createConversation(definition: WorkflowDefinition): Promis
     {
       ownership: { kind: "ownerless" },
       agent: {
-        model: {
-          provider: definition.agent.provider,
-          modelId: definition.agent.model,
-        },
+        model: { provider: definition.agent.provider, modelId: definition.agent.model },
         instructions: definition.agent.instructions,
         tools: [],
       },

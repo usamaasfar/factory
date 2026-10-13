@@ -1,83 +1,93 @@
 # Workflows
 
-Define workflows as YAML files under `.factory/workflows/`. Each workflow selects
-its events, integration permissions, sandbox, and agent.
+Workflow YAML describes subscribed events, integration permissions, an optional
+sandbox, and the agent's model and instructions. Files conventionally live under
+`.factory/workflows/`, but startup does not load that directory yet.
 
-> This is the proposed DSL. The current parser and runtime do not yet support
-> top-level `sandbox` and `permissions`.
+A minimal conversation needs no tools or sandbox:
 
 ```yaml
-name: Review pull requests
-
+name: Conversation
 on:
-  github.pull_request.opened:
-  github.pull_request.synchronize:
+  test.message.created:
+permissions: {}
+agent:
+  provider: deepseek
+  model: deepseek-flash
+  instructions: Answer briefly. Remember information from earlier messages.
+```
 
+## Fields
+
+- **`name`**: workflow name.
+- **`on`**: event names mapped to empty YAML values (`null`). Names include the
+  integration namespace, such as `github.pull_request.opened`.
+- **`permissions`**: required mapping of integration names to resource grants.
+  Use `{}` when no tools are needed.
+- **`sandbox`**: optional provider, environment name, and resource settings.
+- **`agent`**: required provider, model ID, and instructions.
+
+The parser rejects unknown fields and invalid field types. It does not check
+event names against registered integrations or resource names against available
+tools. The named model provider must be registered separately.
+
+## Registration and sessions
+
+`workflow.register(sources)` validates all YAML before atomically replacing the
+global registry. Empty input clears it; invalid input leaves it unchanged.
+Acquiring the files from a trusted source is separate from registration.
+
+An event matching `on` starts a session unless that workflow already has a
+matching session. Equal or descendant subjects continue existing conversations,
+even when the event does not match `on`. Each session stores its definition
+snapshot; later registry changes do not rewrite it. Registry replacement assigns
+new workflow IDs, so workflow identity across replacements is not stable yet.
+
+Conversation creation stores the provider, model, and instructions. Subsequent
+inputs preserve its history. See [event routing](routing.md) for steering,
+delivery deduplication, and the distinction between admission and completion.
+
+## Permissions
+
+The parser accepts `read` and `write`; omit a resource for no grant:
+
+```yaml
 permissions:
   github:
-    contents: read
     pull_requests: write
+  slack:
+    conversations: read
+```
 
+The intended policy is that `write` includes `read`, each resource is its own
+permission boundary, and parent grants do not grant access to children. Nested
+resources use dotted paths, such as `repository.contents`. Event subscriptions
+never grant tool access, and replay safety is separate from permissions.
+
+Tool registration, permission selection, and execution-time authorization are
+not wired yet. All conversations currently have an empty toolset.
+
+## Sandboxes
+
+The parser accepts this optional configuration:
+
+```yaml
 sandbox:
   provider: local
   environment: base.linux
   resources:
     cpu: 2
     memory: 4
-    volume: 4
-
-agent:
-  provider: openai
-  model: gpt-5.6-sol
-  instructions: |
-    Review the pull request as it evolves.
-    Report actionable findings supported by the code.
-    Revisit findings when new commits arrive and avoid duplicate comments.
+    volume: 20
 ```
 
-## Fields
+Resources are positive integers: CPU cores, memory in GiB, and volume in GiB.
+Defaults are `cpu: 1`, `memory: 2`, and `volume: 4`.
 
-- **`name`**: human-readable workflow name.
-- **`on`**: one or more integration-defined events. Empty values mean no filters.
-- **`permissions`**: optional access grants to integration resources.
-- **`sandbox`**: optional execution environment. Its provider is configured by
-  Factory; its environment lives under `.factory/environments/`.
-- **`agent`**: model provider, model name, and instructions.
+Sandbox provisioning, environment resolution, coding tools, and idle suspension
+are not connected to conversation execution yet. Declaring a sandbox currently
+does not grant filesystem or shell access.
 
-Unknown fields and unsupported events are errors. Without a sandbox, no
-filesystem or shell tools are available.
-
-Sandbox `resources` use integers: `cpu` is the number of cores; `memory` and
-`volume` are capacities in GiB. The proposed default for `volume` is 4 GiB.
-
-## Permissions
-
-Each resource accepts `none`, `read`, or `write`:
-
-- Omitted permissions grant nothing.
-- `write` includes `read`.
-- Resource names come from the configured integration.
-- Nested resources use dotted paths, such as `repository.contents`.
-- Parent permissions do not grant access to child resources.
-- Unknown resources or permission levels are errors.
-
-Permissions determine which tools are available and are checked before every
-execution. Grants are limited to trusted resource scopes and deployment policy.
-Subscribing to an event does not grant tool access.
-
-Replay safety is separate from permissions. Integration permissions also do not
-restrict local sandbox filesystem or shell access.
-
-## Lifetime and trust
-
-Factory loads definitions from the repository's default branch. Pull requests
-cannot change the instructions governing their own execution.
-
-Related events continue the same workflow session. Existing sessions retain the
-definition that created them; workflow changes apply to new sessions. Current
-deployment policy remains the ceiling on access.
-
-Sandbox compute is suspended when work becomes idle, while storage is preserved
-for later events.
-
-See [the example workflows](../.factory/workflows/) and [SDK](../sdk/README.md).
+The database and conversation storage default to memory. Startup still needs
+workflow loading, table initialization, and model provider registration. See
+[extensibility](extensibility.md) and [example workflows](../.factory/workflows/).

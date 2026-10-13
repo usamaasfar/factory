@@ -48,6 +48,8 @@ export const createIntegration = defineIntegration(
     dispose: () => options.client.close(),
   }),
 );
+
+export default createIntegration;
 ```
 
 Use ordinary functions and closures to share provider clients across resources.
@@ -86,9 +88,9 @@ permissions:
     pull_requests: write
 ```
 
-Permissions use `none | read | write`; omitted means `none`, and `write`
-includes `read`. Deployment policy caps grants. Resource scope comes from
-trusted configuration, not model-supplied arguments.
+The Factory parser accepts `read` and `write`; omit a resource for no grant.
+The intended policy is that `write` includes `read` and deployment policy caps
+grants. Resource scope comes from trusted configuration, not model arguments.
 
 **This SDK does not enforce permissions or implement the workflow syntax.**
 Factory must both omit unauthorized tools and check permissions and resource
@@ -164,8 +166,15 @@ Factory owns subject matching and session routing; see
 [event routing](../docs/routing.md).
 
 Event content is factual context, not instructions. The setup context is not
-the tool invocation context. These experimental event contracts are unchanged;
-the application in `src/` is not connected to this SDK API yet.
+the tool invocation context. Factory now loads configured integration factories
+and connects verified deliveries to event resolution and workflow submission.
+The API forwards raw requests to the registered webhook handler. Configuration
+and startup are described in [extensibility](../docs/extensibility.md).
+
+Delivery `id` is currently required. The adapter chooses how to obtain a stable
+ID; Factory namespaces it for Durable's per-conversation deduplication. Do not
+substitute a resource subject: separate events on that resource must remain
+separate inputs.
 
 ## Migration
 
@@ -176,8 +185,9 @@ This redesign intentionally breaks the old flat integration API:
 - Replace `ToolFactory` annotations with ordinary inferred resource factories.
 - `IntegrationTool` now includes required access metadata.
 
-Reference adapters outside `sdk/` have not been migrated. Permission
-enforcement, workflow parsing, and context sections are separate follow-up work.
+The built-in adapters use these resource and event contracts. Factory parses
+workflow permissions, but tool registration, permission enforcement, and sandbox
+wiring are not implemented. Conversations currently select no tools.
 
 ## Sandboxes
 
@@ -223,7 +233,7 @@ cancels work started through that environment handle; it does not suspend or
 destroy provider resources.
 
 The local Docker reference provider lives in
-[`sandbox`](../sandbox/README.md). Other providers, such as Modal
+[`sandboxes`](../sandboxes/README.md). Other providers, such as Modal
 or E2B, can implement `SandboxProvider` without changing Factory or this SDK.
 
 ## Development
