@@ -12,7 +12,7 @@
     "db:generate": "drizzle-kit generate",
     "workspace:image": "docker build --file sandbox/coding.Dockerfile --tag factory-coding:test sandbox",
     "serve": "bun run src/index.ts",
-    "dev": "bun --hot run src/index.ts",
+    "dev": "NODE_ENV=development bun --hot run src/index.ts",
     "test": "bun test"
   },
   "devDependencies": {

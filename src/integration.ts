@@ -59,6 +59,7 @@ export async function registerIntegrations(
       events: {
         async receive(delivery) {
           // Webhook handlers submit verified deliveries using integration-relative event names.
+          console.debug(`${name} webhook event: ${delivery.name} (${delivery.id})`);
           const event = events.get(delivery.name);
           if (!event) return false;
 
