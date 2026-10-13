@@ -1,6 +1,13 @@
 import { basename, dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import type { EventDefinition, Integration, IntegrationContext, WebhookHandler } from "factory-oss/integration";
+import type {
+  EventDefinition,
+  Integration,
+  IntegrationContext,
+  IntegrationTool,
+  Resource,
+  WebhookHandler,
+} from "factory-oss/integration";
 
 /** Agent-facing event with integration-namespaced delivery ID, name, and subject. */
 export type ResolvedEvent = {
@@ -21,22 +28,25 @@ export type LoadedIntegration = Omit<Integration, "events"> & {
 const integrations = new Map<string, LoadedIntegration>();
 
 /**
- * Sets up the configured integrations before the server starts.
+ * Discovers and initializes integrations before the server starts.
  * Uses each module’s directory name for its webhook URL and event namespace.
  * Resolved events go to onEvent; workflow execution stays outside this module.
  */
 export async function registerIntegrations(
-  sources: readonly { path: string; options: unknown }[],
   baseUrl: string,
   onEvent: (event: ResolvedEvent) => void | Promise<void>,
 ): Promise<void> {
-  for (const source of sources) {
-    const path = resolve(source.path);
+  const paths = Array.from(new Bun.Glob("*/index.ts").scanSync({ cwd: "integrations" })).sort();
+  for (const entry of paths) {
+    const path = resolve("integrations", entry);
     const name = basename(dirname(path));
     if (!/^[a-z][a-z0-9_-]*$/.test(name)) throw new Error(`Invalid integration name: ${name}`);
     if (integrations.has(name)) throw new Error(`Duplicate integration: ${name}`);
 
-    const { default: setup } = await import(pathToFileURL(path).href);
+    const module = await import(pathToFileURL(path).href);
+    if (module.disabled === true) continue;
+
+    const setup = module.default;
     if (typeof setup !== "function") throw new Error(`Integration ${name} must export a setup function`);
 
     const events = new Map<string, EventDefinition>();
@@ -56,6 +66,7 @@ export async function registerIntegrations(
       events: {
         async receive(delivery) {
           // Webhook handlers submit verified deliveries using integration-relative event names.
+          console.debug(`${name} webhook event: ${delivery.name} (${delivery.id})`);
           const event = events.get(delivery.name);
           if (!event) return false;
 
@@ -74,7 +85,8 @@ export async function registerIntegrations(
       },
     };
 
-    const integration: Integration & { name?: string } = await setup(source.options, context);
+    const integration: (Integration & { name?: string }) | undefined = await setup(context);
+    if (!integration) continue;
     if (integration.name !== undefined && integration.name !== name) {
       throw new Error(`Integration name ${integration.name} does not match ${name}`);
     }
@@ -86,10 +98,37 @@ export async function registerIntegrations(
     }
 
     integrations.set(name, { ...integration, name, webhookUrl, webhook, events });
+    if (webhookUrl) console.log(`${name} webhook ready: ${webhookUrl}`);
   }
+}
+
+/** Selects tools granted by exact resource paths; write grants include read tools. */
+export function getIntegrationTools(
+  name: string,
+  permissions: Readonly<Record<string, "read" | "write">>,
+): IntegrationTool[] {
+  const integration = integrations.get(name);
+  if (!integration) throw new Error(`Integration ${name} is not available`);
+
+  return Object.entries(permissions).flatMap(([path, access]) => {
+    const resource = findResource(integration.resources, path);
+    if (!resource) throw new Error(`Resource ${name}.${path} is not available`);
+    return (resource.tools ?? []).filter((tool) => access === "write" || tool.access === "read");
+  });
 }
 
 /** Looks up initialized capabilities without importing or setting up the module again. */
 export function getIntegration(name: string): LoadedIntegration | undefined {
   return integrations.get(name);
+}
+
+function findResource(resources: readonly Resource[], path: string): Resource | undefined {
+  let candidates = resources;
+  let resource: Resource | undefined;
+  for (const name of path.split(".")) {
+    resource = candidates.find((candidate) => candidate.name === name);
+    if (!resource) return undefined;
+    candidates = resource.resources ?? [];
+  }
+  return resource;
 }

@@ -10,8 +10,8 @@ export interface Integration {
 }
 
 /** Types a setup factory without executing or caching it. */
-export function defineIntegration<Options, Result extends Integration | Promise<Integration>>(
-  setup: (options: Options, context: IntegrationContext) => Result,
-): (options: Options, context: IntegrationContext) => Result {
+export function defineIntegration<Result extends Integration | undefined | Promise<Integration | undefined>>(
+  setup: (context: IntegrationContext) => Result,
+): (context: IntegrationContext) => Result {
   return setup;
 }

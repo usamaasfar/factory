@@ -1,22 +1,10 @@
 import { eq } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { database } from "../database.ts";
 import { parseWorkflowDefinition, type WorkflowDefinition } from "./definition.ts";
+import { workflowSessions, workflows } from "./schema.ts";
 
-export const workflows = sqliteTable("workflows", {
-  id: integer().primaryKey({ autoIncrement: true }),
-  source: text().notNull(),
-  definition: text({ mode: "json" }).$type<WorkflowDefinition>().notNull(),
-});
-
-export const workflowSessions = sqliteTable("workflow_sessions", {
-  id: integer().primaryKey({ autoIncrement: true }),
-  workflowId: integer("workflow_id").notNull(),
-  subjects: text({ mode: "json" }).$type<string[]>().notNull(),
-  conversationId: integer("conversation_id").notNull().unique(),
-  definition: text({ mode: "json" }).$type<WorkflowDefinition>().notNull(),
-});
+export { workflowSessions, workflows } from "./schema.ts";
 
 export type WorkflowSession = typeof workflowSessions.$inferSelect;
 
@@ -30,6 +18,8 @@ export function createWorkflowStore<TSchema extends Record<string, unknown>>(dat
         transaction.delete(workflows).run();
         if (rows.length > 0) transaction.insert(workflows).values(rows).run();
       });
+
+      for (const { definition } of rows) console.debug(`Workflow registered: ${definition.name}`);
     },
 
     findByEvent(event: string): number[] {

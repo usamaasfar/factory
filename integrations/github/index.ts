@@ -7,23 +7,31 @@ import { createPullTools } from "./tools/pulls.ts";
 import { createReactionTools } from "./tools/reactions.ts";
 import { createGitHubWebhookHandler } from "./webhook.ts";
 
-export type GitHubOptions = {
-  appId: string;
-  privateKey: string;
-  webhookSecret: string;
-  installationId: number;
-  repositoryId: number;
-};
+export const disabled = true;
 
 /** Experimental PR slice: one authenticated client, explicit event/tool registrations. */
-export const createGitHubIntegration = defineIntegration((options: GitHubOptions, ctx) => {
+export const createGitHubIntegration = defineIntegration((ctx) => {
+  const appId = Bun.env.GITHUB_APP_ID?.trim();
+  const privateKey = Bun.env.GITHUB_PRIVATE_KEY?.trim();
+  const webhookSecret = Bun.env.GITHUB_WEBHOOK_SECRET?.trim();
+  const installation = Bun.env.GITHUB_INSTALLATION_ID?.trim();
+  const repository = Bun.env.GITHUB_REPOSITORY_ID?.trim();
+  if (!appId || !privateKey || !webhookSecret || !installation || !repository) {
+    throw new Error(
+      "GitHub requires GITHUB_APP_ID, GITHUB_PRIVATE_KEY, GITHUB_WEBHOOK_SECRET, GITHUB_INSTALLATION_ID, and GITHUB_REPOSITORY_ID.",
+    );
+  }
+
+  const installationId = Number(installation);
+  const repositoryId = Number(repository);
+
   const client = new Octokit({
     authStrategy: createAppAuth,
     auth: {
-      appId: options.appId,
-      privateKey: options.privateKey,
-      installationId: options.installationId,
-      repositoryIds: [options.repositoryId],
+      appId: appId,
+      privateKey: privateKey,
+      installationId: installationId,
+      repositoryIds: [repositoryId],
     },
   });
   const pullTools = createPullTools(client, ctx);
@@ -33,9 +41,9 @@ export const createGitHubIntegration = defineIntegration((options: GitHubOptions
   const webhookUrl = ctx.webhook.register(
     createGitHubWebhookHandler(
       {
-        secret: options.webhookSecret,
-        installationId: options.installationId,
-        repositoryId: options.repositoryId,
+        secret: webhookSecret,
+        installationId: installationId,
+        repositoryId: repositoryId,
       },
       ctx,
     ),

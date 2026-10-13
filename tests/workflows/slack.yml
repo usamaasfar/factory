@@ -1,0 +1,18 @@
+name: Slack conversation
+
+on:
+  slack.app_mention:
+  slack.message.channels:
+  slack.message.groups:
+
+permissions:
+  slack:
+    conversations: read
+    chat: write
+
+agent:
+  provider: deepseek
+  model: deepseek-flash
+  instructions: |
+    Be a concise assistant in the Slack thread where you were mentioned.
+    Continue the same conversation as people reply and respond in the thread.

@@ -6,33 +6,50 @@ Workflows and their execution environments are defined in `.factory/`.
 
 ## Workflows
 
-Factory workflows are defined in YAML files under `.factory/workflows/`. Each workflow selects the events that activate a long-lived agent and defines its trusted environment, resources, model, and instructions.
+Workflow YAML conventionally lives under `.factory/workflows/`:
 
 ```yaml
-name: Review pull requests
-
+name: Conversation
 on:
-  github.pull_request.opened:
-  github.pull_request.synchronize:
-
+  test.message.created:
+permissions: {}
 agent:
-  environment: base.linux
-  resources:
-    cpu: 2
-    memory: 4
-  provider: openai
-  model: gpt-5.6-sol
-  instructions: |
-    Own this pull request review for its lifetime.
-
-    Inspect the diff and relevant repository context. Report only actionable
-    findings supported by the code.
+  provider: deepseek
+  model: deepseek-flash
+  instructions: Answer briefly. Remember information from earlier messages.
 ```
 
-Factory registers workflow files only from the repository's default branch, so pull requests cannot change the instructions governing their own execution. The initial workflow syntax is intentionally small; permissions, schedules, trigger filters, tools, and delegated agents will be added only when Factory enforces their semantics.
+Triggers create sessions. Equal or descendant subjects continue the same
+conversations, preserving their history. Provider delivery IDs deduplicate
+retried inputs; subjects identify the resources those conversations follow.
+
+See [workflows](docs/workflow.md) and [event routing](docs/routing.md).
+
+## Integrations
+
+Startup discovers `integrations/*/index.ts`. Each integration reads its
+credentials from the environment and exports a setup function.
+
+`POST /webhook/:integration` forwards the raw request to the integration's
+handler. It verifies the delivery, resolves an event's subject and content, and
+awaits workflow input admission through the callback connected at startup.
+
+See [extensibility](docs/extensibility.md) and [built-in integrations](integrations/README.md).
+
+## Current status
+
+Development startup initializes the in-memory workflow database, loads
+`tests/workflows/*.yml`, and registers DeepSeek. Workflow permissions select
+integration tools per conversation. Sandboxes and persistent storage are not yet
+wired.
 
 ## Development
 
 ```bash
 bun install
+bun test src/workflow
 ```
+
+The workflow suite includes a live `deepseek-flash` test. It requires
+`DEEPSEEK_API_KEY` (read from `.env`) and makes paid API requests; there are no
+mocks or opt-in flags.

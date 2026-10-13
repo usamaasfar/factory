@@ -3,6 +3,7 @@ import { workflowRouter } from "./router.ts";
 import { workflowSession } from "./store.ts";
 
 export async function workflowTrigger(event: { id: string; name: string; subject: string; content: string }) {
+  console.debug(`Workflow event: ${event.name} (${event.id})`);
   const sessionIds = await workflowRouter(event);
   const submissions = [];
 
@@ -12,6 +13,7 @@ export async function workflowTrigger(event: { id: string; name: string; subject
 
     const submissionId = await submitInput(session.conversationId, { content: event.content, requestId: event.id });
     submissions.push({ sessionId, submissionId });
+    console.debug(`Workflow input submitted: session ${sessionId} (${submissionId})`);
   }
 
   return submissions;

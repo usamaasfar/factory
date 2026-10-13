@@ -11,13 +11,11 @@ type SlackEnvelope = {
 
 export type SlackWebhookOptions = {
   signingSecret: string;
-  teamId: string;
 };
 
 /** Verify and decode Slack Events API deliveries. */
 export function createSlackWebhookHandler(options: SlackWebhookOptions, ctx: IntegrationContext): WebhookHandler {
   if (!options.signingSecret.trim()) throw new Error("Slack signing secret must not be empty.");
-  if (!options.teamId.trim()) throw new Error("Slack team ID must not be empty.");
 
   return async (request) => {
     const timestamp = request.headers.get("x-slack-request-timestamp");
@@ -65,7 +63,6 @@ export function createSlackWebhookHandler(options: SlackWebhookOptions, ctx: Int
     ) {
       return new Response("Invalid Slack payload", { status: 400 });
     }
-    if (payload.team_id !== options.teamId) return new Response(null, { status: 204 });
 
     const event = payload.event as Record<string, unknown>;
     let name: string;
