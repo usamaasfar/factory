@@ -4,15 +4,11 @@ Provider adapters built on `factory-oss/integration`. Each adapter creates an
 authenticated client, registers a webhook handler, and returns event definitions
 and tool resources.
 
-Enable built-ins or trusted custom modules through `.factory/integrations.ts`;
-see [configuration and startup](../docs/extensibility.md#configuration-and-startup).
-Nothing is enabled by default. The API dispatches raw requests at
-`POST /webhook/:integration` to the registered handler. Resolved events reach
-workflow routing and Durable submission through the startup callback.
-
-Tool resources are retained but not installed or granted to conversations yet.
-Startup also still needs workflow loading, table initialization, and model
-provider setup before it can execute workflows.
+Startup discovers `integrations/*/index.ts`; see
+[configuration and startup](../docs/extensibility.md#configuration-and-startup).
+The API dispatches raw requests at `POST /webhook/:integration` to the
+registered handler. Workflow permissions select resource tools for each Durable
+conversation.
 
 ## GitHub
 
@@ -20,11 +16,11 @@ The GitHub adapter is scoped to one app installation and repository. It supports
 
 Configuration:
 
-- `appId`
-- `privateKey`
-- `webhookSecret`
-- `installationId`
-- `repositoryId`
+- `GITHUB_APP_ID`
+- `GITHUB_PRIVATE_KEY`
+- `GITHUB_WEBHOOK_SECRET`
+- `GITHUB_INSTALLATION_ID`
+- `GITHUB_REPOSITORY_ID`
 
 Webhook deliveries are signature-verified and filtered to the configured installation and repository.
 
@@ -34,11 +30,10 @@ The Slack adapter supports app mentions and user replies in public and private c
 
 Configuration:
 
-- `token`
-- `signingSecret`
-- `teamId`
+- `SLACK_TOKEN`
+- `SLACK_SIGNING_SECRET`
 
-The Slack app must subscribe to `app_mention`, `message.channels`, and `message.groups`. Its token must be permitted to call `conversations.replies` and `chat.postMessage`. Webhook requests are signature-verified, checked for freshness, and filtered to the configured workspace. Bot messages, message subtypes, and non-thread channel messages are ignored.
+The Slack app must subscribe to `app_mention`, `message.channels`, and `message.groups`. Its token must be permitted to call `conversations.replies` and `chat.postMessage`. Webhook requests are signature-verified and checked for freshness. The signed payload supplies the workspace identity. Bot messages, message subtypes, and non-thread channel messages are ignored.
 
 ## Linear
 
@@ -46,9 +41,9 @@ The Linear adapter supports issue triage across issue creation, issue updates, a
 
 Configuration:
 
-- `apiKey`
-- `webhookSecret`
-- `organizationId`
+- `LINEAR_API_KEY`
+- `LINEAR_WEBHOOK_SECRET`
+- `LINEAR_ORGANIZATION_ID`
 
 The Linear webhook must subscribe to `Issue` and `Comment` resources. Deliveries are verified with Linear's webhook client and filtered to the configured organization. Comments unrelated to an issue are ignored.
 

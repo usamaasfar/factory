@@ -27,9 +27,8 @@ See [workflows](docs/workflow.md) and [event routing](docs/routing.md).
 
 ## Integrations
 
-List enabled module paths and provider options in `.factory/integrations.ts`.
-Built-ins live under `integrations/`; custom modules can live under
-`.factory/integrations/`. Both export a default `(options, context)` factory.
+Startup discovers `integrations/*/index.ts`. Each integration reads its
+credentials from the environment and exports a setup function.
 
 `POST /webhook/:integration` forwards the raw request to the integration's
 handler. It verifies the delivery, resolves an event's subject and content, and
@@ -39,10 +38,10 @@ See [extensibility](docs/extensibility.md) and [built-in integrations](integrati
 
 ## Current status
 
-The configured integration list is empty. Startup does not yet load workflow
-files, create database tables, or register model providers. Tools and sandboxes
-are not wired; conversations have no tools. Storage defaults to memory, without
-restart recovery or concurrent session-creation coordination.
+Development startup initializes the in-memory workflow database, loads
+`tests/workflows/*.yml`, and registers DeepSeek. Workflow permissions select
+integration tools per conversation. Sandboxes and persistent storage are not yet
+wired.
 
 ## Development
 

@@ -64,8 +64,10 @@ permission boundary, and parent grants do not grant access to children. Nested
 resources use dotted paths, such as `repository.contents`. Event subscriptions
 never grant tool access, and replay safety is separate from permissions.
 
-Tool registration, permission selection, and execution-time authorization are
-not wired yet. All conversations currently have an empty toolset.
+When a workflow starts a conversation, Factory resolves each exact resource
+path and selects its permitted tools. A `read` grant selects read tools; `write`
+selects both read and write tools. Pi Durable keeps that toolset scoped to the
+conversation.
 
 ## Sandboxes
 
@@ -88,6 +90,6 @@ Sandbox provisioning, environment resolution, coding tools, and idle suspension
 are not connected to conversation execution yet. Declaring a sandbox currently
 does not grant filesystem or shell access.
 
-The database and conversation storage default to memory. Startup still needs
-workflow loading, table initialization, and model provider registration. See
-[extensibility](extensibility.md) and [example workflows](../.factory/workflows/).
+The database and conversation storage default to memory. Development startup
+loads `tests/workflows/*.yml`, applies workflow migrations, and registers
+DeepSeek. See [extensibility](extensibility.md).
