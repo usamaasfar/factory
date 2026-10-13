@@ -21,17 +21,17 @@ export type LoadedIntegration = Omit<Integration, "events"> & {
 const integrations = new Map<string, LoadedIntegration>();
 
 /**
- * Sets up the configured integrations before the server starts.
+ * Discovers and initializes integrations before the server starts.
  * Uses each module’s directory name for its webhook URL and event namespace.
  * Resolved events go to onEvent; workflow execution stays outside this module.
  */
 export async function registerIntegrations(
-  sources: readonly { path: string; options: unknown }[],
   baseUrl: string,
   onEvent: (event: ResolvedEvent) => void | Promise<void>,
 ): Promise<void> {
-  for (const source of sources) {
-    const path = resolve(source.path);
+  const paths = Array.from(new Bun.Glob("*/index.ts").scanSync({ cwd: "integrations" })).sort();
+  for (const entry of paths) {
+    const path = resolve("integrations", entry);
     const name = basename(dirname(path));
     if (!/^[a-z][a-z0-9_-]*$/.test(name)) throw new Error(`Invalid integration name: ${name}`);
     if (integrations.has(name)) throw new Error(`Duplicate integration: ${name}`);
@@ -74,7 +74,8 @@ export async function registerIntegrations(
       },
     };
 
-    const integration: Integration & { name?: string } = await setup(source.options, context);
+    const integration: (Integration & { name?: string }) | undefined = await setup(context);
+    if (!integration) continue;
     if (integration.name !== undefined && integration.name !== name) {
       throw new Error(`Integration name ${integration.name} does not match ${name}`);
     }
