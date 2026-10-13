@@ -5,6 +5,8 @@ import { createCommentTools } from "./tools/comment.ts";
 import { createIssueTools } from "./tools/issue.ts";
 import { createLinearWebhookHandler } from "./webhook.ts";
 
+export const disabled = true;
+
 /** One authenticated SDK client shared by Linear tools. */
 export const createLinearIntegration = defineIntegration((ctx) => {
   const apiKey = Bun.env.LINEAR_API_KEY?.trim();

@@ -7,6 +7,8 @@ import { createPullTools } from "./tools/pulls.ts";
 import { createReactionTools } from "./tools/reactions.ts";
 import { createGitHubWebhookHandler } from "./webhook.ts";
 
+export const disabled = true;
+
 /** Experimental PR slice: one authenticated client, explicit event/tool registrations. */
 export const createGitHubIntegration = defineIntegration((ctx) => {
   const appId = Bun.env.GITHUB_APP_ID?.trim();

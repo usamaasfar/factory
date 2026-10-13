@@ -36,7 +36,10 @@ export async function registerIntegrations(
     if (!/^[a-z][a-z0-9_-]*$/.test(name)) throw new Error(`Invalid integration name: ${name}`);
     if (integrations.has(name)) throw new Error(`Duplicate integration: ${name}`);
 
-    const { default: setup } = await import(pathToFileURL(path).href);
+    const module = await import(pathToFileURL(path).href);
+    if (module.disabled === true) continue;
+
+    const setup = module.default;
     if (typeof setup !== "function") throw new Error(`Integration ${name} must export a setup function`);
 
     const events = new Map<string, EventDefinition>();
@@ -87,6 +90,7 @@ export async function registerIntegrations(
     }
 
     integrations.set(name, { ...integration, name, webhookUrl, webhook, events });
+    if (webhookUrl) console.log(`${name} webhook ready: ${webhookUrl}`);
   }
 }
 
