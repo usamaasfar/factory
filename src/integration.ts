@@ -1,6 +1,13 @@
 import { basename, dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import type { EventDefinition, Integration, IntegrationContext, WebhookHandler } from "factory-oss/integration";
+import type {
+  EventDefinition,
+  Integration,
+  IntegrationContext,
+  IntegrationTool,
+  Resource,
+  WebhookHandler,
+} from "factory-oss/integration";
 
 /** Agent-facing event with integration-namespaced delivery ID, name, and subject. */
 export type ResolvedEvent = {
@@ -95,7 +102,33 @@ export async function registerIntegrations(
   }
 }
 
+/** Selects tools granted by exact resource paths; write grants include read tools. */
+export function getIntegrationTools(
+  name: string,
+  permissions: Readonly<Record<string, "read" | "write">>,
+): IntegrationTool[] {
+  const integration = integrations.get(name);
+  if (!integration) throw new Error(`Integration ${name} is not available`);
+
+  return Object.entries(permissions).flatMap(([path, access]) => {
+    const resource = findResource(integration.resources, path);
+    if (!resource) throw new Error(`Resource ${name}.${path} is not available`);
+    return (resource.tools ?? []).filter((tool) => access === "write" || tool.access === "read");
+  });
+}
+
 /** Looks up initialized capabilities without importing or setting up the module again. */
 export function getIntegration(name: string): LoadedIntegration | undefined {
   return integrations.get(name);
+}
+
+function findResource(resources: readonly Resource[], path: string): Resource | undefined {
+  let candidates = resources;
+  let resource: Resource | undefined;
+  for (const name of path.split(".")) {
+    resource = candidates.find((candidate) => candidate.name === name);
+    if (!resource) return undefined;
+    candidates = resource.resources ?? [];
+  }
+  return resource;
 }
