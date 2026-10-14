@@ -63,6 +63,7 @@ and manage useful channel bookmarks.
 | `conversations` | Read a page of messages in a thread |
 | `chat` | Reply to a thread |
 | `bookmarks` | Add link bookmarks; edit, list, and remove channel bookmarks |
+| `emoji` | List workspace custom emoji and aliases; optionally include Unicode emoji categories |
 
 ### Events
 
@@ -71,3 +72,5 @@ and manage useful channel bookmarks.
 | `slack.app_mention` | A user mentions the app |
 | `slack.message.channels` | A user replies in a public channel thread |
 | `slack.message.groups` | A user replies in a private channel thread |
+
+Listing emoji requires the `emoji:read` scope.

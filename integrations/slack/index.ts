@@ -4,6 +4,7 @@ import { createMessageEvents } from "./events/message.ts";
 import { createBookmarkTools } from "./tools/bookmarks.ts";
 import { createReplyTool } from "./tools/chat.ts";
 import { createReadTool } from "./tools/conversations.ts";
+import { createEmojiTools } from "./tools/emoji.ts";
 import { createSlackWebhookHandler } from "./webhook.ts";
 
 /** One authenticated SDK client shared by Slack tools. */
@@ -30,6 +31,7 @@ export const createSlackIntegration = defineIntegration((ctx) => {
       defineResource({ name: "conversations", tools: [createReadTool(client, ctx)] }),
       defineResource({ name: "chat", tools: [createReplyTool(client, ctx)] }),
       defineResource({ name: "bookmarks", tools: Object.values(createBookmarkTools(client, ctx)) }),
+      defineResource({ name: "emoji", tools: Object.values(createEmojiTools(client, ctx)) }),
     ],
   };
 });
