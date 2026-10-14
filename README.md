@@ -53,3 +53,19 @@ bun test src/workflow
 The workflow suite includes a live `deepseek-flash` test. It requires
 `DEEPSEEK_API_KEY` (read from `.env`) and makes paid API requests; there are no
 mocks or opt-in flags.
+
+## CI
+
+GitHub Actions runs formatting/lint, typechecking, and unit tests on pull requests
+and pushes to `main`, using Bun 1.4.2 and the frozen lockfile.
+
+Run the same checks locally:
+
+```bash
+bun run format:check
+bun run typecheck
+bun run test:ci
+```
+
+`test:ci` excludes the live DeepSeek trigger test and Docker integration tests;
+no API keys or sandbox images are required. `bun test` still runs the full suite.
