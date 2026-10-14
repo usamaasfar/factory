@@ -19,8 +19,8 @@ sandbox:
     volume: 20
 
 agent:
-  provider: openai
-  model: gpt-5.6-sol
+  provider: deepseek
+  model: deepseek-flash
   instructions: |
     Be an engineering teammate in the Slack thread where you were mentioned.
     Read the discussion, answer questions, and help with the requested work.
