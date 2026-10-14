@@ -64,6 +64,7 @@ and manage useful channel bookmarks.
 | `chat` | Reply to a thread |
 | `bookmarks` | Add link bookmarks; edit, list, and remove channel bookmarks |
 | `emoji` | List workspace custom emoji and aliases; optionally include Unicode emoji categories |
+| `reactions` | Add reactions to messages; get an item and its reactions; remove reactions |
 
 ### Events
 
@@ -72,5 +73,11 @@ and manage useful channel bookmarks.
 | `slack.app_mention` | A user mentions the app |
 | `slack.message.channels` | A user replies in a public channel thread |
 | `slack.message.groups` | A user replies in a private channel thread |
+| `slack.reaction_added` | A user adds an emoji reaction |
+| `slack.reaction_removed` | A user removes an emoji reaction |
 
-Listing emoji requires the `emoji:read` scope.
+Listing emoji requires the `emoji:read` scope. Reading reactions and receiving
+reaction events requires `reactions:read`; adding and removing reactions requires
+`reactions:write`. Subscribe to `reaction_added` and `reaction_removed` in the
+Slack app to receive reaction events. Message reactions join the parent thread
+conversation.

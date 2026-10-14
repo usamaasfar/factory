@@ -9,6 +9,9 @@ permissions:
   slack:
     conversations: read
     chat: write
+    bookmarks: write
+    emoji: read
+    reactions: write
 
 sandbox:
   provider: local
