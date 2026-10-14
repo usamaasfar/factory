@@ -7,14 +7,12 @@
     "sdk"
   ],
   "scripts": {
+    "serve": "bun run src/index.ts",
+    "dev": "bun --hot run src/index.ts",
     "format": "biome check --write --files-ignore-unknown=true .",
     "format:check": "biome check --files-ignore-unknown=true .",
     "db:generate": "drizzle-kit generate",
-    "workspace:image": "docker build --file sandbox/coding.Dockerfile --tag factory-coding:test sandbox",
-    "serve": "bun run src/index.ts",
-    "dev": "NODE_ENV=development bun --hot run src/index.ts",
     "test": "bun test",
-    "test:ci": "bun test --path-ignore-patterns '**/trigger.test.ts' --path-ignore-patterns '**/*.docker.test.ts' --path-ignore-patterns '**/docker-local/*.test.ts'",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

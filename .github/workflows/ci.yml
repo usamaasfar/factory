@@ -31,4 +31,4 @@ jobs:
         run: bun run typecheck
       - name: Run unit tests
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-        run: bun run test:ci
+        run: bun run test
