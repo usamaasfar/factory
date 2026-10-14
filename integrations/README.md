@@ -75,15 +75,17 @@ working documents, and manage useful channel bookmarks.
 | Event | When it happens |
 | --- | --- |
 | `slack.app_mention` | A user mentions the app in a message or canvas body |
-| `slack.message.channels` | A user replies or edits a reply in a public channel thread |
-| `slack.message.groups` | A user replies or edits a reply in a private channel thread |
+| `slack.message` | A user replies or edits a reply in a public or private channel thread |
 | `slack.reaction_added` | A user adds an emoji reaction |
 | `slack.reaction_removed` | A user removes an emoji reaction |
 | `slack.file_shared` | A user shares an accessible file |
 
 Subscribe to the corresponding events in the Slack app, then select the
-`slack.` names in a workflow. The example workflow follows mentions and channel
-thread messages; reactions and standalone file-sharing notifications are opt-in.
+`slack.` names in a workflow. For channel messages, enable `message.channels`
+and `message.groups` in Slack; both deliver the native `message` event, selected
+as `slack.message` in workflows. DMs are ignored. The example workflow follows
+mentions and channel thread messages; reactions and standalone file-sharing
+notifications are opt-in.
 
 Message events include attachment IDs and replies broadcast to the channel.
 Edits retain the original reply's thread; metadata-only changes are ignored.

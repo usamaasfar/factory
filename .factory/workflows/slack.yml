@@ -2,8 +2,7 @@ name: Collaborate in Slack
 
 on:
   slack.app_mention:
-  slack.message.channels:
-  slack.message.groups:
+  slack.message:
 
 permissions:
   slack:

@@ -3,7 +3,6 @@ import { defineIntegration, defineResource } from "factory-oss/integration";
 import { createFileEvents } from "./events/files.ts";
 import { createMessageEvents } from "./events/message.ts";
 import { createReactionEvents } from "./events/reactions.ts";
-import { createSlackEventReceiver } from "./events/receive.ts";
 import { createAssistantTools } from "./tools/assistant.ts";
 import { createBookmarkTools } from "./tools/bookmarks.ts";
 import { createCanvasTools } from "./tools/canvases.ts";
@@ -28,11 +27,11 @@ export const createSlackIntegration = defineIntegration((ctx) => {
     retryConfig: { retries: 0 },
     rejectRateLimitedCalls: true,
   });
-  const messageEvents = createMessageEvents(ctx);
+  const messageEvents = createMessageEvents(client, ctx);
   const reactionEvents = createReactionEvents(client, ctx);
   const fileEvents = createFileEvents(ctx);
   const webhookUrl = ctx.webhook.register(
-    createSlackWebhookHandler({ signingSecret }, createSlackEventReceiver(client, ctx)),
+    createSlackWebhookHandler({ signingSecret }, (delivery) => ctx.events.receive(delivery)),
   );
 
   return {
