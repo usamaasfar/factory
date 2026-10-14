@@ -1,73 +1,73 @@
-# Integrations
+# Integration
 
-Provider adapters built on `factory-oss/integration`. Each adapter creates an
-authenticated client, registers a webhook handler, and returns event definitions
-and tool resources.
-
-Startup discovers `integrations/*/index.ts`; see
-[configuration and startup](../docs/extensibility.md#configuration-and-startup).
-The API dispatches raw requests at `POST /webhook/:integration` to the
-registered handler. Workflow permissions select resource tools for each Durable
-conversation.
+Integrations connect Factory to the services your team uses. Events bring work
+into Factory, and resources let agents read information and take action.
+Workflows choose which events to follow and which resources agents can use.
 
 ## GitHub
 
-The GitHub adapter is scoped to one app installation and repository. It supports pull request, review, review-comment, review-thread, issue-comment, and reaction workflows. Ordinary issue comments are ignored; this slice is intentionally pull-request-only.
+Connect Factory to GitHub to review pull requests, discuss changes, manage
+reviewers, and respond to feedback.
 
-Configuration:
+### Configuration
 
-- `GITHUB_APP_ID`
-- `GITHUB_PRIVATE_KEY`
-- `GITHUB_WEBHOOK_SECRET`
-- `GITHUB_INSTALLATION_ID`
-- `GITHUB_REPOSITORY_ID`
+| Variable | Description |
+| --- | --- |
+| `GITHUB_APP_ID` | Your GitHub App's ID |
+| `GITHUB_PRIVATE_KEY` | The app's private key |
+| `GITHUB_WEBHOOK_SECRET` | The secret configured for the app's webhook |
+| `GITHUB_INSTALLATION_ID` | The app installation to use |
+| `GITHUB_REPOSITORY_ID` | The repository Factory works with |
 
-Webhook deliveries are signature-verified and filtered to the configured installation and repository.
+### Resources
+
+| Resource | Supported actions |
+| --- | --- |
+| `pull_requests` | Create, read, list, and update pull requests; check merge status; read commits and changed files; post conversation comments |
+| `pull_requests` | Create, read, list, update, and submit reviews; delete pending reviews; create, read, list, update, delete, and reply to review comments |
+| `pull_requests` | List, request, and remove reviewers |
+| `reactions` | Add, list, and remove reactions on pull requests and their comments |
+
+### Events
+
+Use these event names in a workflow's `on` section.
+
+| Event prefix | Supported actions |
+| --- | --- |
+| `github.pull_request` | `opened`, `reopened`, `synchronize`, `ready_for_review`, `closed`, `edited`, `converted_to_draft` |
+| `github.pull_request` | `assigned`, `unassigned`, `labeled`, `unlabeled`, `milestoned`, `demilestoned`, `locked`, `unlocked` |
+| `github.pull_request` | `review_requested`, `review_request_removed`, `auto_merge_enabled`, `auto_merge_disabled`, `enqueued`, `dequeued` |
+| `github.pull_request_review` | `submitted`, `edited`, `dismissed` |
+| `github.pull_request_review_comment` | `created`, `edited`, `deleted` |
+| `github.pull_request_review_thread` | `resolved`, `unresolved` |
+| `github.issue_comment` | `created`, `edited`, `deleted` — pull request comments only |
+
 
 ## Slack
 
-The Slack adapter supports app mentions and user replies in public and private channel threads. Its tools read a thread and post a threaded reply.
+Connect Factory to Slack to ask questions, discuss engineering work in threads,
+and manage useful channel bookmarks.
 
-Configuration:
+### Configuration
 
-- `SLACK_TOKEN`
-- `SLACK_SIGNING_SECRET`
+| Variable | Description |
+| --- | --- |
+| `SLACK_TOKEN` | The Slack app's API token |
+| `SLACK_SIGNING_SECRET` | The app's signing secret |
 
-The Slack app must subscribe to `app_mention`, `message.channels`, and `message.groups`. Its token must be permitted to call `conversations.replies` and `chat.postMessage`. Webhook requests are signature-verified and checked for freshness. The signed payload supplies the workspace identity. Bot messages, message subtypes, and non-thread channel messages are ignored.
 
-## Linear
+### Resources
 
-The Linear adapter supports issue triage across issue creation, issue updates, and issue comments. Its tools read an issue and discussion, search related issues, list team triage options, update triage fields, and post comments.
+| Resource | Supported actions |
+| --- | --- |
+| `conversations` | Read a page of messages in a thread |
+| `chat` | Reply to a thread |
+| `bookmarks` | Add link bookmarks; edit, list, and remove channel bookmarks |
 
-Configuration:
+### Events
 
-- `LINEAR_API_KEY`
-- `LINEAR_WEBHOOK_SECRET`
-- `LINEAR_ORGANIZATION_ID`
-
-The Linear webhook must subscribe to `Issue` and `Comment` resources. Deliveries are verified with Linear's webhook client and filtered to the configured organization. Comments unrelated to an issue are ignored.
-
-## Runtime behavior
-
-Subjects follow [event routing](../docs/routing.md): resource ancestry paths
-ordered from parent to child, using stable IDs only. The integration registry
-supplies the provider namespace; subjects do not repeat it. For example:
-
-- `repository:123:pull_request:42:comment:100`
-- `repository:123:pull_request:42:review_comment:200:reply:201`
-- `workspace:T1:channel:C1:thread:1700000000.001:reply:1700000001.002`
-- `organization:org-id:issue:issue-id:comment:comment-id:reply:reply-id`
-
-Slack uses `thread_ts` (or the root message's `ts`) as the thread identity and
-each reply's `ts` as its identity. Mentions and messages use the same paths.
-Linear replies use the supplied `parentId`; GitHub review-comment replies use
-`in_reply_to_id`. No extra ancestors are inferred. GitHub review-thread events
-use `review_thread:<node_id>` under the PR, separate from `review_comment:<id>`:
-comment deliveries do not supply that thread node ID, so these adapters do not
-invent a mapping between thread and comment identities.
-
-Action names and agent-facing text stay outside subjects. Delivery IDs remain
-separate for Factory's deduplication. These adapters do not implement routing
-or change tool permissions.
-
-Provider payloads remain private to their adapter. Verified deliveries are reduced to a stable subject and short factual content before Factory handles them. Tool failures return concise agent-facing content; cancellation remains control flow. Mutating tools are marked replay-unsafe.
+| Event | When it happens |
+| --- | --- |
+| `slack.app_mention` | A user mentions the app |
+| `slack.message.channels` | A user replies in a public channel thread |
+| `slack.message.groups` | A user replies in a private channel thread |
