@@ -38,10 +38,48 @@ See [extensibility](docs/extensibility.md) and [built-in integrations](integrati
 
 ## Current status
 
-Development startup initializes the in-memory workflow database, loads
-`tests/workflows/*.yml`, and registers DeepSeek. Workflow permissions select
+Startup initializes the in-memory workflow database, loads `.factory/workflows/`
+(or `WORKFLOWS_DIR`), and registers DeepSeek. Workflow permissions select
 integration tools per conversation. Sandboxes and persistent storage are not yet
 wired.
+
+## Docker
+
+For a local test run, create `.env` in the repository root, then run:
+
+```bash
+bun run docker:test
+```
+
+This builds the latest engine code and recreates `factory-test`, loading `.env`
+and workflows from your repository’s `.factory/workflows/`. It also starts a
+Cloudflare Quick Tunnel (or reuses the running tunnel), prints its public HTTPS
+URL, and streams Factory logs.
+No Cloudflare account or token is needed. **The tunnel exposes Factory publicly.**
+The command sets `PUBLIC_BASE_URL` to the tunnel URL, overriding any value in
+`.env`. Update Slack’s Request URL to the printed `/webhook/slack` address.
+
+The local endpoint is `http://127.0.0.1:8080`. Rerun the command after code,
+workflow, or environment changes; there is no hot reload or publishing. The
+running tunnel is kept alive during Factory rebuilds, preserving its public URL.
+There is a brief interruption while Factory restarts. The URL changes only if
+the tunnel itself restarts or is recreated.
+Quick Tunnels are for testing, not a stable production endpoint.
+
+**Ctrl+C stops log streaming but leaves both containers running.**
+Use `FACTORY_TEST_PORT=8081 bun run docker:test` if port 8080 is occupied.
+Reconnect to logs with `docker logs -f factory-test` (or
+`docker logs -f factory-test-tunnel` for tunnel diagnostics). Stop both with:
+
+```bash
+docker stop factory-test factory-test-tunnel
+```
+
+The containers restart with Docker unless explicitly stopped. Runtime state
+remains in memory and is lost on restart.
+
+The same Dockerfile builds the engine without repository workflows or credentials;
+the local command mounts your `.factory/` directory and supplies secrets at runtime.
 
 ## Development
 
@@ -50,9 +88,9 @@ bun install
 bun test src/workflow
 ```
 
-The workflow suite includes a live `deepseek-flash` test. It requires
-`DEEPSEEK_API_KEY` (read from `.env`) and makes paid API requests; there are no
-mocks or opt-in flags.
+The workflow suite includes a live `deepseek-flash` test. It is skipped when
+`DEEPSEEK_API_KEY` is missing. When the key is available (including from `.env`),
+it runs against the real API and makes paid requests.
 
 ## CI
 
@@ -64,8 +102,8 @@ Run the same checks locally:
 ```bash
 bun run format:check
 bun run typecheck
-bun run test:ci
+bun run test
 ```
 
-`test:ci` excludes the live DeepSeek trigger test and Docker integration tests;
-no API keys or sandbox images are required. `bun test` still runs the full suite.
+The live DeepSeek suite skips when `DEEPSEEK_API_KEY` is missing. Docker suites
+require their sandbox test image; `bun test` runs the full discovered suite.

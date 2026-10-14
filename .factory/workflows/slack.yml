@@ -9,9 +9,6 @@ permissions:
   slack:
     conversations: read
     chat: write
-  github:
-    contents: write
-    pull_requests: write
 
 sandbox:
   provider: local

@@ -9,6 +9,7 @@
   "scripts": {
     "serve": "bun run src/index.ts",
     "dev": "bun --hot run src/index.ts",
+    "docker:test": "bash scripts/docker-test.sh",
     "format": "biome check --write --files-ignore-unknown=true .",
     "format:check": "biome check --files-ignore-unknown=true .",
     "db:generate": "drizzle-kit generate",
