@@ -13,15 +13,9 @@ export function createReadTool(client: WebClient, _ctx: IntegrationContext) {
     }),
     replay: "safe",
     access: "read",
-    async execute({ channel, thread, cursor, limit }, _api, context) {
+    async execute({ channel, thread, cursor, limit }) {
       try {
-        context.abortSignal?.throwIfAborted();
-        const response = await client.conversations.replies({
-          channel,
-          ts: thread,
-          cursor,
-          limit: limit ?? 15,
-        });
+        const response = await client.conversations.replies({ channel, ts: thread, cursor, limit });
         const messages = response.messages ?? [];
         const formattedMessages =
           messages.map((message) => `[${message.ts}] ${message.user ?? "unknown"}: ${message.text ?? ""}`).join("\n") ||
@@ -33,8 +27,8 @@ export function createReadTool(client: WebClient, _ctx: IntegrationContext) {
           content: `Read ${messages.length} messages from Slack channel ${channel}, thread ${thread}:\n${formattedMessages}${pagination}`,
         };
       } catch (error) {
-        context.abortSignal?.throwIfAborted();
         return {
+          isError: true,
           content: `Failed to read the Slack thread: ${error instanceof Error ? error.message : String(error)}`,
         };
       }

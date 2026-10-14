@@ -1,6 +1,7 @@
 import { WebClient } from "@slack/web-api";
 import { defineIntegration, defineResource } from "factory-oss/integration";
 import { createMessageEvents } from "./events/message.ts";
+import { createBookmarkTools } from "./tools/bookmarks.ts";
 import { createReplyTool } from "./tools/chat.ts";
 import { createReadTool } from "./tools/conversations.ts";
 import { createSlackWebhookHandler } from "./webhook.ts";
@@ -28,6 +29,7 @@ export const createSlackIntegration = defineIntegration((ctx) => {
     resources: [
       defineResource({ name: "conversations", tools: [createReadTool(client, ctx)] }),
       defineResource({ name: "chat", tools: [createReplyTool(client, ctx)] }),
+      defineResource({ name: "bookmarks", tools: Object.values(createBookmarkTools(client, ctx)) }),
     ],
   };
 });
