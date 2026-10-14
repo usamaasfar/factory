@@ -14,6 +14,8 @@ const envelopeSchema = z.discriminatedUnion("type", [
 
 type SlackCallback = Extract<z.infer<typeof envelopeSchema>, { type: "event_callback" }>;
 
+export type SlackEventDelivery = EventDelivery & { payload: SlackCallback };
+
 export type SlackWebhookOptions = {
   signingSecret: string;
 };
@@ -33,7 +35,7 @@ function verifySignature(body: string, headers: Headers, secret: string): boolea
 /** Verify Slack requests and forward event deliveries without interpreting them. */
 export function createSlackWebhookHandler(
   options: SlackWebhookOptions,
-  receive: (delivery: EventDelivery & { payload: SlackCallback }) => Promise<boolean>,
+  receive: (delivery: SlackEventDelivery) => Promise<boolean>,
 ): WebhookHandler {
   if (!options.signingSecret.trim()) throw new Error("Slack signing secret must not be empty.");
 

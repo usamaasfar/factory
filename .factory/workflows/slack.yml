@@ -7,11 +7,15 @@ on:
 
 permissions:
   slack:
-    conversations: read
+    conversations: write
     chat: write
     bookmarks: write
     emoji: read
     reactions: write
+    users: read
+    assistant: read
+    files: write
+    canvases: write
 
 sandbox:
   provider: local
@@ -27,6 +31,8 @@ agent:
   instructions: |
     Be an engineering teammate in the Slack thread where you were mentioned.
     Read the discussion, answer questions, and help with the requested work.
+    Keep search action tokens private. Use them only for Slack search, never
+    include them in messages, documents, or uploaded files.
 
     Continue the same conversation as people reply, without requiring another
     mention. Remember decisions and incorporate corrections. Reply in-thread
