@@ -27,6 +27,7 @@ export const harness = await Harness.open(
     models,
     registry,
     settings: { extensions: [] },
+    onReport: (error) => console.error("[durable] Runtime report", error),
   },
   BACKGROUND_CONTEXT,
 );
@@ -60,6 +61,20 @@ export async function submitInput(
   if (!conversation) throw new Error(`Conversation ${conversationId} not found`);
 
   const submission = await conversation.submit({ type: "input", ...input, whenBusy: "steer" }, BACKGROUND_CONTEXT);
+  const context = { conversationId, submissionId: submission.id, requestId: input.requestId };
+
+  // Admission is enough to acknowledge a webhook; execution settles independently.
+  void submission
+    .wait(BACKGROUND_CONTEXT)
+    .then((result) => {
+      if (result.status === "unanswered") {
+        console.error("[durable] Input unanswered", { ...context, reason: result.reason, detail: result.detail });
+      } else {
+        console.info("[durable] Input completed", context);
+      }
+    })
+    .catch((error) => console.error("[durable] Could not observe input outcome", context, error));
+
   return submission.id;
 }
 

@@ -66,7 +66,7 @@ export async function registerIntegrations(
       events: {
         async receive(delivery) {
           // Webhook handlers submit verified deliveries using integration-relative event names.
-          console.debug(`${name} webhook event: ${delivery.name} (${delivery.id})`);
+          console.debug(`[integration] ${name} webhook event: ${delivery.name} (${delivery.id})`);
           const event = events.get(delivery.name);
           if (!event) return false;
 
@@ -98,7 +98,7 @@ export async function registerIntegrations(
     }
 
     integrations.set(name, { ...integration, name, webhookUrl, webhook, events });
-    if (webhookUrl) console.log(`${name} webhook ready: ${webhookUrl}`);
+    if (webhookUrl) console.log(`[integration] ${name} webhook ready: ${webhookUrl}`);
   }
 }
 

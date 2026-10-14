@@ -9,9 +9,6 @@ permissions:
   slack:
     conversations: read
     chat: write
-  github:
-    contents: write
-    pull_requests: write
 
 sandbox:
   provider: local
@@ -22,8 +19,8 @@ sandbox:
     volume: 20
 
 agent:
-  provider: openai
-  model: gpt-5.6-sol
+  provider: deepseek
+  model: deepseek-flash
   instructions: |
     Be an engineering teammate in the Slack thread where you were mentioned.
     Read the discussion, answer questions, and help with the requested work.
