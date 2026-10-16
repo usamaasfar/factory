@@ -37,7 +37,7 @@ describe("app_mention", () => {
     });
 
     expect(result).toEqual({
-      subject: "workspace:T1:channel:C1:thread:1700000000.000001:reply:1700000001.000001",
+      subject: "workspace:T1:channel:C1:thread:1700000000.000001",
       content: "Slack user U1 mentioned the app in channel C1, thread 1700000000.000001: Please review this.",
     });
   });
@@ -89,7 +89,7 @@ describe("app_mention", () => {
     });
 
     expect(result).toEqual({
-      subject: "workspace:T1:channel:C1:thread:1700000000.000001:reply:1700000001.000001",
+      subject: "workspace:T1:channel:C1:thread:1700000000.000001",
       content:
         "Slack user U1 mentioned the app in channel C1, thread 1700000000.000001: Please review this.\nFiles: F1.\nSearch action token (do not share): event-action-token",
     });
@@ -108,7 +108,7 @@ describe("message", () => {
     });
 
     expect(result).toEqual({
-      subject: "workspace:T1:channel:C1:thread:1700000000.000001:reply:1700000001.000001",
+      subject: "workspace:T1:channel:C1:thread:1700000000.000001",
       content: "Slack user U1 replied in channel C1, thread 1700000000.000001: The fix is ready.",
     });
   });
@@ -124,7 +124,7 @@ describe("message", () => {
     });
 
     expect(result).toEqual({
-      subject: "workspace:T1:channel:C1:thread:1700000000.000001:reply:1700000001.000001",
+      subject: "workspace:T1:channel:C1:thread:1700000000.000001",
       content: "Slack user U1 replied in channel C1, thread 1700000000.000001: The fix is ready.",
     });
   });
@@ -159,7 +159,7 @@ describe("message", () => {
     });
 
     expect(result).toEqual({
-      subject: "workspace:T1:channel:C1:thread:1700000000.000001:reply:1700000001.000001",
+      subject: "workspace:T1:channel:C1:thread:1700000000.000001",
       content: "Slack user U1 replied in channel C1, thread 1700000000.000001: The fix is ready.",
     });
   });
@@ -184,7 +184,7 @@ describe("message", () => {
     });
 
     expect(result).toEqual({
-      subject: "workspace:T1:channel:C1:thread:1700000000.000001:reply:1700000001.000001",
+      subject: "workspace:T1:channel:C1:thread:1700000000.000001",
       content: "Slack user U1 replied in channel C1, thread 1700000000.000001: Here is the build log.\nFiles: F1.",
     });
   });
@@ -218,7 +218,7 @@ describe("message", () => {
 
     expect(info).toHaveBeenCalledWith({ channel: "C1" });
     expect(result).toEqual({
-      subject: "workspace:T1:channel:C1:thread:1700000000.000001:reply:1700000001.000001",
+      subject: "workspace:T1:channel:C1:thread:1700000000.000001",
       content: "Slack user U1 edited a reply in channel C1, thread 1700000000.000001: The fix is merged.",
     });
   });

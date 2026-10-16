@@ -16,6 +16,11 @@ port="${FACTORY_TEST_PORT:-8080}"
 
 # Build first so a failed build leaves the existing test container running.
 docker build -t "$image" .
+# Inspect the daemon-side socket so Factory can use it without running as root.
+docker_group=$(docker run --rm --network none \
+  --mount type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock,readonly \
+  "$image" stat -c '%g' /var/run/docker.sock)
+
 if ! docker network inspect "$network" >/dev/null 2>&1; then
   docker network create "$network" >/dev/null
 fi
@@ -59,12 +64,15 @@ fi
 
 docker run -d --name "$container" --init --restart unless-stopped --network "$network" \
   --env-file .env \
+  --group-add "$docker_group" \
+  -e FACTORY_DOCKER_SOCKET=/var/run/docker.sock \
   -e PUBLIC_BASE_URL="$public_url" \
   -e NODE_ENV=development \
   -e HOST=0.0.0.0 \
   -e PORT=8080 \
   -e WORKFLOWS_DIR=/app/.factory/workflows \
   --mount "type=bind,src=$PWD/.factory,dst=/app/.factory,readonly" \
+  --mount type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock,readonly \
   -p "127.0.0.1:$port:8080" \
   "$image"
 

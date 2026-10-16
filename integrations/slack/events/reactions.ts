@@ -28,9 +28,8 @@ export function createReactionEvents(client: WebClient, _ctx: IntegrationContext
             if (!message) throw new Error("Slack reaction lookup did not return a message.");
             const thread =
               "thread_ts" in message && typeof message.thread_ts === "string" ? message.thread_ts : item.ts;
-            const reply = item.ts !== thread ? `:reply:${item.ts}` : "";
             return {
-              subject: `workspace:${team_id}:channel:${item.channel}:thread:${thread}${reply}`,
+              subject: `workspace:${team_id}:channel:${item.channel}:thread:${thread}`,
               content: `Slack user ${event.user} added :${event.reaction}: to message ${item.ts}.`,
             };
           }
@@ -61,9 +60,8 @@ export function createReactionEvents(client: WebClient, _ctx: IntegrationContext
             if (!message) throw new Error("Slack reaction lookup did not return a message.");
             const thread =
               "thread_ts" in message && typeof message.thread_ts === "string" ? message.thread_ts : item.ts;
-            const reply = item.ts !== thread ? `:reply:${item.ts}` : "";
             return {
-              subject: `workspace:${team_id}:channel:${item.channel}:thread:${thread}${reply}`,
+              subject: `workspace:${team_id}:channel:${item.channel}:thread:${thread}`,
               content: `Slack user ${event.user} removed :${event.reaction}: from message ${item.ts}.`,
             };
           }

@@ -93,8 +93,10 @@ Canvas-body mentions identify the canvas and section, while mentions in threaded
 canvas comments use the normal mention event. These are payload cases, not
 additional subscriptions.
 
-Message reactions join the parent thread conversation. File sharing and file
-reactions identify the file instead of guessing a message thread.
+Mentions, replies, edits, and message reactions use the parent thread as their
+routing subject. A session that starts from a reply therefore continues across
+sibling replies in that thread. Different threads remain separate. File sharing
+and file reactions identify the file instead of guessing a message thread.
 Use standalone file-sharing notifications only when they should start separate
 file work, rather than duplicating attachment work in an existing thread.
 

@@ -93,6 +93,7 @@ daemon failures.
 
 Containers use an init process, dropped capabilities, `no-new-privileges`, a
 read-only root, and a 256 MiB `/tmp` tmpfs. There is no host execution fallback.
-The provider does not yet configure CPU/memory limits or storage quotas, and it
-is not wired into Factory's workflow runtime yet. The SDK provides
+The provider does not yet configure CPU/memory limits or storage quotas.
+Factory assigns sandboxes to workflow conversations and opens them lazily; see
+[workflow configuration](../../docs/workflow.md#sandboxes). The SDK provides
 `sandbox.toExecutionEnv(cwd?)` for Pi Durable 1.0.2; provider code remains Pi-free.

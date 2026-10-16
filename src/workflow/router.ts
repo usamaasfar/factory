@@ -11,7 +11,7 @@ export async function workflowRouter(event: { name: string; subject: string }): 
 
   const triggers = workflow.findByEvent(event.name).map((id) => ({ id, definition: workflow.getDefinition(id) }));
   console.debug(
-    `Workflow routes: ${event.name} matched ${triggers.length} workflow(s) and ${sessions.length} existing session(s)`,
+    `Workflow routes: ${event.name} (${event.subject}) matched ${triggers.length} workflow(s) and ${sessions.length} existing session(s)`,
   );
 
   for (const { id, definition } of triggers) {
@@ -22,7 +22,6 @@ export async function workflowRouter(event: { name: string; subject: string }): 
     );
 
     const conversationId = await createConversation(definition, tools);
-    console.debug(`Conversation ${conversationId} tools: ${tools.map((tool) => tool.name).join(", ") || "none"}`);
     const session = workflowSession.create({
       workflowId: id,
       subjects: [event.subject],

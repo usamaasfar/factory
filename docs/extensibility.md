@@ -93,8 +93,11 @@ Handlers await input admission, not the agent's answer. See
 
 ## Sandboxes
 
-The workflow parser accepts an optional sandbox, but conversation creation does
-not provision one. Permissioned integration tools run in Factory and are scoped
+Workflows may request a sandbox. Factory records a unique key and configured
+prebuilt image in a conversation-scoped Pi Durable document, then lazily opens
+the sandbox through `HarnessOptions.env`. Concurrent requests share the open;
+failures propagate and can be retried. Workflows without a sandbox resolve no
+environment. Permissioned integration tools still run in Factory and are scoped
 to each Durable conversation.
 
 The intended policy is that authorized integration tools run in Factory without
@@ -110,8 +113,12 @@ see the [sandbox SDK](../sdk/README.md#sandboxes).
 
 The [local Docker provider](../sandboxes/local-docker/README.md) implements native
 `open`, `suspend`, and `destroy` operations with persistent workspace storage.
-Factory workflow assignment, provisioning wiring, and lifecycle policy are not
-yet connected to conversation creation.
+Factory connects workflow assignments to that provider in `src/sandbox.ts`.
+Only `provider: local` is supported. Image and connection configuration, along
+with the deferred environment builds and resource limits, are described in
+[workflows](workflow.md#sandboxes). Only sandbox workflows select Pi's built-in
+coding-tools extension and include its `read`, `write`, `edit`, and `bash` tools
+in their allowlist. Idle suspension and automatic teardown remain unimplemented.
 
 ## Adding a provider
 
@@ -137,5 +144,5 @@ wired. Factory's database and Durable conversations default to memory, so
 process restarts do not recover them. Conversation creation and session
 persistence have no crash or concurrent-creation coordination yet.
 
-Sandbox lifecycle wiring and shutdown disposal of integrations are not
+Sandbox lifecycle automation and shutdown disposal of integrations are not
 implemented. These APIs remain experimental.

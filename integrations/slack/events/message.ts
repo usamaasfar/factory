@@ -16,6 +16,7 @@ type SlackEventCallback<Event> = {
   event: Event & { action_token?: string };
 };
 
+/** Message subjects identify the parent thread so sibling replies share a conversation. */
 export function createMessageEvents(client: WebClient, _ctx: IntegrationContext) {
   return {
     appMention: defineEvent<SlackEventCallback<MentionEvent>>({
@@ -40,12 +41,11 @@ export function createMessageEvents(client: WebClient, _ctx: IntegrationContext)
           case undefined:
           case "file_share": {
             const thread = event.thread_ts ?? event.ts;
-            const reply = event.ts !== thread ? `:reply:${event.ts}` : "";
             let content = `Slack user ${event.user} mentioned the app in channel ${event.channel}, thread ${thread}: ${event.text}`;
             if (event.files?.length) content += `\nFiles: ${event.files.map((file) => file.id).join(", ")}.`;
             if (event.action_token) content += `\nSearch action token (do not share): ${event.action_token}`;
             return {
-              subject: `workspace:${team_id}:channel:${event.channel}:thread:${thread}${reply}`,
+              subject: `workspace:${team_id}:channel:${event.channel}:thread:${thread}`,
               content,
             };
           }
@@ -100,7 +100,7 @@ export function createMessageEvents(client: WebClient, _ctx: IntegrationContext)
         if (fileIds) content += `\nFiles: ${fileIds}.`;
         if (event.action_token) content += `\nSearch action token (do not share): ${event.action_token}`;
         return {
-          subject: `workspace:${team_id}:channel:${event.channel}:thread:${thread}:reply:${message.ts}`,
+          subject: `workspace:${team_id}:channel:${event.channel}:thread:${thread}`,
           content,
         };
       },

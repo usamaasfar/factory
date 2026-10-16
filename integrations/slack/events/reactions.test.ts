@@ -36,7 +36,7 @@ describe("reaction_added", () => {
 
     expect(getReaction).toHaveBeenCalledWith({ channel: "C1", timestamp: "1700000001.000001" });
     expect(result).toEqual({
-      subject: "workspace:T1:channel:C1:thread:1700000000.000001:reply:1700000001.000001",
+      subject: "workspace:T1:channel:C1:thread:1700000000.000001",
       content: "Slack user U1 added :eyes: to message 1700000001.000001.",
     });
   });
@@ -114,7 +114,7 @@ describe("reaction_removed", () => {
 
     expect(getReaction).toHaveBeenCalledWith({ channel: "C1", timestamp: "1700000001.000001" });
     expect(result).toEqual({
-      subject: "workspace:T1:channel:C1:thread:1700000000.000001:reply:1700000001.000001",
+      subject: "workspace:T1:channel:C1:thread:1700000000.000001",
       content: "Slack user U1 removed :eyes: from message 1700000001.000001.",
     });
   });

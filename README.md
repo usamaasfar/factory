@@ -40,8 +40,13 @@ See [extensibility](docs/extensibility.md) and [built-in integrations](integrati
 
 Startup initializes the in-memory workflow database, loads `.factory/workflows/`
 (or `WORKFLOWS_DIR`), and registers DeepSeek. Workflow permissions select
-integration tools per conversation. Sandboxes and persistent storage are not yet
-wired.
+integration tools per conversation. Workflows that declare a sandbox receive a
+conversation-scoped assignment, opened lazily from a configured prebuilt Docker
+image. These conversations receive Pi's `read`, `write`, `edit`, and `bash` tools,
+using only their sandbox. Workflows without a sandbox do not receive coding tools.
+Environment builds, resource limits, lifecycle automation, and persistent runtime
+storage remain unwired.
+See [sandbox configuration](docs/workflow.md#sandboxes).
 
 ## Docker
 
@@ -58,6 +63,12 @@ URL, and streams Factory logs.
 No Cloudflare account or token is needed. **The tunnel exposes Factory publicly.**
 The command sets `PUBLIC_BASE_URL` to the tunnel URL, overriding any value in
 `.env`. Update Slack’s Request URL to the printed `/webhook/slack` address.
+
+For sandbox workflows, set `FACTORY_SANDBOX_IMAGE` in `.env` to an already-built
+image (see [sandbox configuration](docs/workflow.md#sandboxes)). The helper mounts
+the daemon's `/var/run/docker.sock` into Factory and grants its non-root user the
+socket's group. **This grants Factory administrative Docker access**, even though
+the socket mount is read-only. The socket is never mounted into agent sandboxes.
 
 The local endpoint is `http://127.0.0.1:8080`. Rerun the command after code,
 workflow, or environment changes; there is no hot reload or publishing. The

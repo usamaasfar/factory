@@ -8,6 +8,7 @@ RUN bun install --frozen-lockfile
 COPY src ./src
 COPY sdk/src ./sdk/src
 COPY integrations ./integrations
+COPY sandboxes ./sandboxes
 COPY drizzle.config.ts ./
 # State is disposable for now; generate the schema for this engine build.
 RUN bun run db:generate && bun prune --production
@@ -22,6 +23,7 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/sdk ./sdk
 COPY --from=build /app/src ./src
 COPY --from=build /app/integrations ./integrations
+COPY --from=build /app/sandboxes ./sandboxes
 COPY --from=build /app/drizzle ./drizzle
 
 # Users mount their own configuration here; repository workflows are not bundled.
