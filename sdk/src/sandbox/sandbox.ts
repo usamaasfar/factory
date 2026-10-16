@@ -1,5 +1,6 @@
 import { Buffer } from "node:buffer";
 import { posix } from "node:path";
+import type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 import type {
   ExecOptions,
   ExecResult,
@@ -9,6 +10,7 @@ import type {
   SandboxOutput,
   SandboxProcess,
 } from "./command.ts";
+import { SandboxExecutionEnv } from "./environment.ts";
 import { execute } from "./process.ts";
 
 /** A command-backed Linux sandbox. Providers implement only start(). */
@@ -29,18 +31,31 @@ export abstract class Sandbox {
   /** A rejected start must clean up any execution it already created. */
   protected abstract start(command: SandboxCommand): Promise<SandboxProcess>;
 
+  /**
+   * Create a Pi Durable 1.0.2 environment with its own cwd and temporary files.
+   * Environments created from this handle share its active execution scope.
+   */
+  toExecutionEnv(cwd = this.cwd): ExecutionEnv {
+    return new SandboxExecutionEnv(this, cwd);
+  }
+
+  /** Stream output without accumulating it. Nonzero exits are results; transport failures reject. */
   exec(command: string, options: ExecOptions = {}): Promise<ExecResult> {
     return this.#operate(options, async (signal) => {
       const decoders = {
         stdout: new TextDecoder("utf-8", { ignoreBOM: true }),
         stderr: new TextDecoder("utf-8", { ignoreBOM: true }),
       };
-      const exitCode = await this.#run(command, options, signal, async ({ stream, data }) => {
+      const exitCode = await this.#run(command, options, signal, async (output) => {
+        await options.onData?.(output);
+        signal.throwIfAborted();
+        const { stream, data } = output;
         if (!options.onOutput) return;
         const text = decoders[stream].decode(data, { stream: true });
         if (text) await options.onOutput(text, stream);
       });
       for (const stream of ["stdout", "stderr"] as const) {
+        signal.throwIfAborted();
         const text = decoders[stream].decode();
         if (text) await options.onOutput?.(text, stream);
       }
@@ -48,6 +63,7 @@ export abstract class Sandbox {
     });
   }
 
+  /** Buffer a regular file from the sandbox. Relative paths resolve against cwd. */
   async readFile(path: string, options: OperationOptions = {}): Promise<Uint8Array> {
     const target = quote(this.#path(path));
     return this.#file(
@@ -60,6 +76,7 @@ export abstract class Sandbox {
     return new TextDecoder("utf-8", { ignoreBOM: true }).decode(await this.readFile(path, options));
   }
 
+  /** Create parent directories and replace the file with the supplied bytes or UTF-8 text. */
   async writeFile(path: string, content: string | Uint8Array, options: OperationOptions = {}): Promise<void> {
     const target = this.#path(path);
     const input = typeof content === "string" ? new TextEncoder().encode(content) : content;
@@ -120,7 +137,7 @@ export abstract class Sandbox {
       const stdout: Uint8Array[] = [];
       const stderr: Uint8Array[] = [];
       let errorBytes = 0;
-      const exitCode = await this.#run(command, { cwd: "/", stdin }, signal, ({ stream, data }) => {
+      const exitCode = await this.#run(command, { cwd: "/", stdin, inheritEnv: false }, signal, ({ stream, data }) => {
         if (stream === "stdout") stdout.push(data.slice());
         else if (errorBytes < 8192) {
           const chunk = data.slice(0, 8192 - errorBytes);

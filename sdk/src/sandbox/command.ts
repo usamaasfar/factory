@@ -17,6 +17,8 @@ export interface ExecOptions extends OperationOptions {
   /** Inherit the sandbox's environment, never the Factory host's. Defaults to true. */
   readonly inheritEnv?: boolean;
   readonly stdin?: Uint8Array;
+  /** Raw chunks, delivered serially before their decoded text. Useful for lossless output storage. */
+  readonly onData?: (output: SandboxOutput) => void | Promise<void>;
   readonly onOutput?: (text: string, stream: SandboxOutput["stream"]) => void | Promise<void>;
 }
 

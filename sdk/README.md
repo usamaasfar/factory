@@ -191,10 +191,10 @@ wiring are not implemented. Conversations currently select no tools.
 
 ## Sandboxes
 
-`factory-oss/sandbox` is a standalone, command-backed Linux sandbox primitive.
-It imports no Pi or Chord modules. Providers extend `Sandbox` and implement
-one protected method, `start(command)`. Factory/Pi integration belongs in a
-separate adapter; none is included here.
+`factory-oss/sandbox` provides a command-backed Linux sandbox and its adapter to
+Pi Durable **1.0.2**. Providers extend `Sandbox` and implement one protected method,
+`start(command)`. Providers do not implement Pi filesystem methods or import Pi
+internals: the SDK owns that adaptation.
 
 ### Implementing a provider
 
@@ -272,8 +272,8 @@ await sandbox.cleanup();
 The SDK provides:
 
 - `exec`: shell execution with optional cwd, environment, binary stdin, timeout
-  in seconds, `AbortSignal`, and streamed UTF-8 output. Output callbacks are
-  awaited serially. Output is not accumulated; the result contains only the
+  in seconds, `AbortSignal`, streamed UTF-8 `onOutput`, and lossless byte chunks
+  through `onData`. Output callbacks are awaited serially. Output is not accumulated; the result contains only the
   exit code. Nonzero exits do not throw.
 - `readFile` / `readTextFile`: complete binary/UTF-8 file reads.
 - `writeFile`: string or binary writes, creating parent directories.
@@ -285,8 +285,8 @@ Execution failures and failed output callbacks trigger stop-and-drain cleanup.
 Successful cancellation rejects with the signal's reason; timeouts use a
 `TimeoutError` DOMException. Other startup/termination failures are preserved,
 not masked as cancellations. Invalid arguments use TypeError. File-command
-failures throw Error; the SDK does not copy Pi's error/result types or filesystem
-interface.
+failures throw Error. The Pi adapter converts these operations to Pi's typed
+`Result`, `FileError`, and `ExecutionError` contracts.
 
 Equal sandbox IDs must identify the same files at the same absolute paths.
 The cwd defaults to `/workspace` and is a resolution base, not a security boundary.
@@ -294,15 +294,42 @@ Filesystem helpers use Bash, `cat`, and `mkdir` through the same native executio
 primitive; they never read or write the host filesystem. File reads buffer the
 whole file. Isolation and credentials remain the provider's responsibility.
 
+### Pi Durable execution environment
+
+```ts
+const sandbox = await provider.open("workspace-id");
+
+// Pass this resolver to Harness.open alongside models and registry.
+const env = ({ cwd }: { cwd?: string }) => sandbox.toExecutionEnv(cwd);
+```
+
+`toExecutionEnv(cwd?)` returns a typed Pi `ExecutionEnv` with the same filesystem
+identity as the sandbox. It implements the complete installed filesystem and
+shell contracts, including canonical paths, binary files, metadata, line readers,
+and complete raw-output spilling. Relative paths use the environment's own cwd.
+All I/O stays inside the sandbox. File and line reads buffer the whole file.
+
+The environment's `cleanup(context)` cancels active sandbox operations and removes
+only temporary paths it created, including spill files. Unlike environment cleanup,
+`sandbox.cleanup()` never deletes files. Keep an environment alive while its spill
+paths are still needed. Neither cleanup method suspends or destroys infrastructure.
+
+Providers implement the SDK's `SandboxProvider` contract: `open(key)`, `suspend(key)`,
+and `destroy(key)`. Factory owns assignment, per-key coordination, idle policy, and
+retention. The local Docker implementation lives in `sandboxes/local-docker/`.
+
 ### Source layout
 
 - `sandbox/command.ts`: public command/process contracts and options.
 - `sandbox/sandbox.ts`: the base class, public methods, and active-operation tracking.
 - `sandbox/process.ts`: output delivery, cancellation, and stop-and-drain coordination.
+- `sandbox/files.ts`: sandbox-backed Pi filesystem and temporary-file ownership.
+- `sandbox/environment.ts`: Pi shell results, cancellation, and output spilling.
+- `sandbox/provider.ts`: native lifecycle contract.
 - `sandbox/index.ts`: public exports.
 
-There is no compatibility layer, built-in provider, lifecycle manager, Pi adapter,
-spill policy, or workflow wiring in this slice.
+Factory workflow provisioning and lifecycle scheduling remain separate; the SDK
+does not install coding tools or select a provider automatically.
 
 ## Development
 

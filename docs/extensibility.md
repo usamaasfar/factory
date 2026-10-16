@@ -101,15 +101,17 @@ The intended policy is that authorized integration tools run in Factory without
 a sandbox, while coding tools require a sandbox's `ExecutionEnv`. Factory must
 never fall back to the host filesystem or shell.
 
-`factory-oss/sandbox` defines a standalone `Sandbox` base class. Providers
-implement `start(command)` and return native output, an exit promise, and a stop
-function. The SDK coordinates streaming, cancellation, timeouts, and basic file
-reads/writes. Neither the primitive nor provider implementations need Pi/Chord
-imports; see the [sandbox SDK](../sdk/README.md#sandboxes).
+`factory-oss/sandbox` defines the `Sandbox` base class and `SandboxProvider`
+lifecycle contract. Providers implement `start(command)` and return native output,
+an exit promise, and a stop function. The SDK coordinates streaming, cancellation,
+timeouts, and file reads/writes. Its `sandbox.toExecutionEnv(cwd?)` adapter implements
+the installed Pi Durable 1.0.2 contract. Provider code needs no Pi/Chord imports;
+see the [sandbox SDK](../sdk/README.md#sandboxes).
 
-Provisioning, suspension, persistent-storage policy, workflow assignment, and the
-Factory/Pi execution adapter are outside this slice. The old local Docker draft
-has been removed; there is no built-in connector or compatibility layer.
+The [local Docker provider](../sandboxes/local-docker/README.md) implements native
+`open`, `suspend`, and `destroy` operations with persistent workspace storage.
+Factory workflow assignment, provisioning wiring, and lifecycle policy are not
+yet connected to conversation creation.
 
 ## Adding a provider
 
