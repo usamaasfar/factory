@@ -1,10 +1,10 @@
-export type { ExecutionEnv } from "@earendil-works/pi-durable/env";
 export type {
-  CommandSandboxEnvironmentOptions,
+  ExecOptions,
+  ExecResult,
+  OperationOptions,
   SandboxCommand,
-  SandboxCommandOutput,
-  SandboxCommandResult,
-  SandboxCommandRunner,
+  SandboxOptions,
+  SandboxOutput,
+  SandboxProcess,
 } from "./command.ts";
-export { createCommandSandboxEnvironment } from "./environment.ts";
-export type { SandboxProvider } from "./provider.ts";
+export { Sandbox } from "./sandbox.ts";

@@ -191,50 +191,118 @@ wiring are not implemented. Conversations currently select no tools.
 
 ## Sandboxes
 
-The sandbox entry point is a barrel over focused modules:
+`factory-oss/sandbox` is a standalone, command-backed Linux sandbox primitive.
+It imports no Pi or Chord modules. Providers extend `Sandbox` and implement
+one protected method, `start(command)`. Factory/Pi integration belongs in a
+separate adapter; none is included here.
 
-- `sandbox/provider.ts`: compute and persistent-storage lifecycle.
-- `sandbox/command.ts`: command transport contracts.
-- `sandbox/environment.ts`: the Pi Durable command-backed environment adapter.
+### Implementing a provider
 
-`SandboxProvider` separates Factory's workspace lifecycle from infrastructure:
+This example illustrates a native client mapping, not a specific vendor API.
+`NativeClient` belongs to the provider implementation.
 
 ```ts
-interface SandboxProvider {
-  open(key: string, context: Context): Promise<ExecutionEnv>;
-  suspend(key: string, context: Context): Promise<void>;
-  destroy(key: string, context: Context): Promise<void>;
+import {
+  Sandbox,
+  type SandboxCommand,
+  type SandboxProcess,
+} from "factory-oss/sandbox";
+import type { NativeClient } from "./native-client";
+
+export class MySandbox extends Sandbox {
+  constructor(private readonly client: NativeClient) {
+    super({ id: `my-provider:${client.id}`, cwd: "/workspace" });
+  }
+
+  protected async start(input: SandboxCommand): Promise<SandboxProcess> {
+    const process = await this.client.spawn({
+      command: input.command,
+      cwd: input.cwd,
+      env: input.env,
+      inheritEnv: input.inheritEnv,
+      stdin: input.stdin,
+      signal: input.signal,
+    });
+
+    return {
+      output: process.output,
+      exited: process.wait().then((result) => result.exitCode),
+      stop: () => process.kill(),
+    };
+  }
 }
 ```
 
-`open` creates or resumes compute attached to persistent storage. `suspend`
-releases compute while preserving that storage, and `destroy` removes both.
-Operations use a stable Factory key and must tolerate retries. Authentication,
-provider resource IDs, and storage mechanics remain implementation details.
+The provider's actual mapping must satisfy these requirements:
 
-Providers may implement Pi Durable's `ExecutionEnv` directly. Providers with a
-POSIX command transport can instead use `createCommandSandboxEnvironment`:
+- Execute Bash source inside the sandbox, with the given absolute cwd and
+  environment. `inheritEnv` refers to the sandbox, never the Factory host.
+- Deliver binary stdin, then EOF. Without stdin, close input immediately.
+- Return a process handle promptly, not after execution finishes. Respect
+  `signal` during startup. If startup rejects after creating a command, stop
+  that command before rejecting; the SDK cannot stop a handle it never received.
+  A safely cancelled startup can reject with the signal's reason or AbortError.
+  Report uncertain termination/cleanup failures separately, not as ordinary aborts.
+- `output` is one async iterable of raw stdout/stderr chunks. Preserve order
+  within each stream; separate pipes cannot promise exact cross-stream ordering.
+- `exited` resolves with any normal exit code, including nonzero values.
+  Transport failures reject instead; do not infer them from application stderr.
+- `stop()` must stop the actual execution and its descendants, cause `exited`
+  to settle, and close output without waiting for it to be consumed. It must be
+  safe after exit or repeated calls.
+  Cancelling a local client request alone is not sufficient.
+
+### Using a sandbox
 
 ```ts
-return createCommandSandboxEnvironment({
-  id: `provider:${persistentResourceId}`,
-  cwd: "/workspace",
-  run: async (command, context) => {
-    // Execute the command through the provider and return its exit code.
-  },
+const sandbox = new MySandbox(nativeClient);
+
+await sandbox.writeFile("hello.txt", "Hello");
+const text = await sandbox.readTextFile("hello.txt");
+const bytes = await sandbox.readFile("hello.txt");
+
+const { exitCode } = await sandbox.exec("cat hello.txt", {
+  timeout: 30,
+  onOutput: (text, stream) => console.log(stream, text),
 });
+
+await sandbox.cleanup();
 ```
 
-The command adapter supplies Pi's filesystem and shell behavior. Its image must
-provide Bash and GNU coreutils. The runner preserves stdout/stderr arrival order,
-awaits output callbacks, and stops an active command before cancellation settles.
-Equal environment IDs must see the same files at the same paths. `cleanup()`
-cancels work started through that environment handle; it does not suspend or
-destroy provider resources.
+The SDK provides:
 
-The local Docker reference provider lives in
-[`sandboxes`](../sandboxes/README.md). Other providers, such as Modal
-or E2B, can implement `SandboxProvider` without changing Factory or this SDK.
+- `exec`: shell execution with optional cwd, environment, binary stdin, timeout
+  in seconds, `AbortSignal`, and streamed UTF-8 output. Output callbacks are
+  awaited serially. Output is not accumulated; the result contains only the
+  exit code. Nonzero exits do not throw.
+- `readFile` / `readTextFile`: complete binary/UTF-8 file reads.
+- `writeFile`: string or binary writes, creating parent directories.
+- `cleanup`: cancel and await operations already started through this handle.
+  The handle remains usable. Cleanup never removes files or infrastructure and
+  reports failures to stop execution instead of silently ignoring them.
+
+Execution failures and failed output callbacks trigger stop-and-drain cleanup.
+Successful cancellation rejects with the signal's reason; timeouts use a
+`TimeoutError` DOMException. Other startup/termination failures are preserved,
+not masked as cancellations. Invalid arguments use TypeError. File-command
+failures throw Error; the SDK does not copy Pi's error/result types or filesystem
+interface.
+
+Equal sandbox IDs must identify the same files at the same absolute paths.
+The cwd defaults to `/workspace` and is a resolution base, not a security boundary.
+Filesystem helpers use Bash, `cat`, and `mkdir` through the same native execution
+primitive; they never read or write the host filesystem. File reads buffer the
+whole file. Isolation and credentials remain the provider's responsibility.
+
+### Source layout
+
+- `sandbox/command.ts`: public command/process contracts and options.
+- `sandbox/sandbox.ts`: the base class, public methods, and active-operation tracking.
+- `sandbox/process.ts`: output delivery, cancellation, and stop-and-drain coordination.
+- `sandbox/index.ts`: public exports.
+
+There is no compatibility layer, built-in provider, lifecycle manager, Pi adapter,
+spill policy, or workflow wiring in this slice.
 
 ## Development
 

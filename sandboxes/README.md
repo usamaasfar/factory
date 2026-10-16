@@ -1,57 +1,20 @@
-# Sandbox
+# Sandbox providers
 
-Factory's built-in sandbox providers implement the provider-neutral contracts
-from [`factory-oss/sandbox`](../sdk/README.md#sandboxes). The workspace layer
-owns initialization, idle suspension, and retention policy; providers own
-compute, persistent storage, and command transport.
+Providers use [`factory-oss/sandbox`](../sdk/README.md#sandboxes). Extend `Sandbox`
+and map the native client's command startup, output, completion, and termination
+to `SandboxCommand` / `SandboxProcess`. Provider code needs no Pi or Chord imports.
 
-## Local Docker
+The old local Docker draft has been removed rather than kept behind a
+compatibility layer. No built-in execution connector is implemented yet.
+Provisioning, persistent storage, suspension, and workflow wiring are outside
+this SDK slice.
 
-`createLocalDockerSandboxProvider()` uses the Docker CLI through `Bun.spawn()`.
-It creates one deterministic container and named volume for each stable Factory
-key and validates their `com.factory.sandbox` ownership labels before reuse or
-removal.
-
-```ts
-import { createLocalDockerSandboxProvider } from "./docker-local/index.ts";
-
-const provider = createLocalDockerSandboxProvider({
-  image: "factory-coding:test",
-});
-```
-
-`open()` creates or starts a container and returns a command-backed Pi Durable
-`ExecutionEnv`. `suspend()` removes the container while preserving its volume.
-`destroy()` removes both resources. All lifecycle operations are idempotent.
-
-Containers run with:
-
-- a read-only root filesystem;
-- a persistent volume mounted at `/workspace`;
-- a writable `/tmp` tmpfs;
-- all capabilities dropped;
-- `no-new-privileges`;
-- an init process.
-
-Commands run through `docker exec` in isolated process groups. Cancellation
-sends `SIGTERM`, waits briefly, and then sends `SIGKILL`; stopping only the host
-Docker CLI process is not sufficient. Environment cleanup cancels commands
-started through that handle but does not suspend compute or remove files.
-
-The command adapter requires Bash, GNU coreutils, `setsid`, and `sleep`. The
-baseline coding image also includes Git, tar, and CA certificates:
+`coding.Dockerfile` remains a baseline Linux image fixture with Bash and coreutils.
+It can be built independently:
 
 ```sh
-bun run workspace:image
+docker build -f sandboxes/coding.Dockerfile -t factory-coding:test .
 ```
 
-## Files
-
-- `docker-local/index.ts` implements the local Docker provider.
-- `docker-local/index.test.ts` verifies lifecycle, persistence, filesystem,
-  shell, and cancellation behavior through Pi's `ExecutionEnv`.
-- `coding.Dockerfile` defines the shared baseline image.
-- `index.ts` exports the available providers.
-
-The Docker Cloud provider will be added separately after the local provider and
-shared SDK boundary are established.
+Building this image does not register a provider or enable sandbox execution in
+Factory. A Docker connector can be implemented separately against the new SDK.
